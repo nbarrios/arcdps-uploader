@@ -355,14 +355,18 @@ uintptr_t mod_imgui() {
 		ImGui::SameLine();
 		ImGui::Checkbox("Filter Wipes", &success_only);
 
-		if (ImGui::Button("Select Recent Clears")) {
+		if (ImGui::Button("Queue Recent Clears")) {
 			std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 			std::chrono::system_clock::time_point four_hours_ago = now - std::chrono::hours(4);
 			for (int i = 0; i < file_list.size(); ++i) {
 				const Log& s = file_list[i];
 				if (s.parsed.reward_at > 0.f) {
 					if (s.time > four_hours_ago) {
-						selected[i] = true;
+						//Prevent double queueing the same log, inefficient search
+						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
+						if (result == pending_upload_queue.end()) {
+							pending_upload_queue.push_back(s);
+						}
 					}
 				}
 			}
