@@ -391,6 +391,10 @@ uintptr_t mod_imgui() {
 
 		ImGui::EndChild();
 
+		if (ImGui::Button("Clear Queue")) {
+			pending_upload_queue.clear();
+		}
+
 		static int item = 0;
 		static const char *items[] = { "None", "Guild / Static", "Training", "PUG", "Low Man / Sells" };
 		ImGui::Combo("Category", &item, items, 5);
