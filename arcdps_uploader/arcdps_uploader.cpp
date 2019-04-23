@@ -455,7 +455,13 @@ uintptr_t mod_imgui() {
 		ImGui::EndChild();
 
 		if (ImGui::Button("Copy & Format Recent")) {
+			std::time_t now = std::time(nullptr);
+			std::tm* local = std::localtime(&now);
+			char buf[64];
+			strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+
 			std::string msg;
+
 			for (const auto& status : status_messages) {
 				if (status.url.size() != 0) {
 					uint32_t minutes = status.duration / 60;
