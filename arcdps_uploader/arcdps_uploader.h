@@ -38,6 +38,8 @@ struct Log {
 struct StatusMessage {
 	std::string msg;
 	std::string url;
+	std::string encounter;
+	uint64_t duration;
 };
 
 /* proto/globals */
@@ -98,5 +100,3 @@ void poll_async_authentication();
 
 void add_pending_upload_logs(std::vector<Log>& queue, Destination dest, int category, std::string tags);
 void upload_thread_loop();
-//void consume_upload_queue();
-//void poll_upload_queue();
