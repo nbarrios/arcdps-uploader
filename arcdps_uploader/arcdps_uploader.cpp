@@ -460,7 +460,7 @@ uintptr_t mod_imgui() {
 			char buf[64];
 			strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
 
-			std::string msg;
+			std::string msg(buf);
 
 			for (const auto& status : status_messages) {
 				if (status.url.size() != 0) {
