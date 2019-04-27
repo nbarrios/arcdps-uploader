@@ -39,9 +39,6 @@
     <ClInclude Include="base64.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\EvtcParserGUI\EvtcParserGUI\Revtc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="miniz.h">
       <Filter>Header Files</Filter>
     </ClInclude>
@@ -107,10 +104,10 @@
     <ClCompile Include="tweetnacl.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\EvtcParserGUI\EvtcParserGUI\Revtc.cpp">
+    <ClCompile Include="miniz.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="miniz.c">
+    <ClCompile Include="..\revtc\Revtc.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

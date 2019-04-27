@@ -108,7 +108,7 @@
       <PreprocessorDefinitions>_CRT_SECURE_NO_WARNINGS;_DEBUG;ARCDPSUPLOADER_EXPORTS;_WINDOWS;_USRDLL;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp14</LanguageStandard>
-      <AdditionalIncludeDirectories>C:\Users\nick\source\repos\EvtcParserGUI\EvtcParserGUI;C:\Users\nick\source\vcpkg\installed\x64-windows-winssl\include;C:\Users\nick\source\repos\arcdps_uploader\arcdps_uploader\includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\nick\source\repos\arcdps_uploader\revtc;C:\Users\nick\source\vcpkg\installed\x64-windows-winssl\include;C:\Users\nick\source\repos\arcdps_uploader\arcdps_uploader\includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -149,7 +149,7 @@ copy /Y "$(TargetDir)$(TargetName).dll" "D:\Guild Wars 2\$(TargetName).dll"</Com
       <SDLCheck>true</SDLCheck>
       <PreprocessorDefinitions>NDEBUG;ARCDPSUPLOADER_EXPORTS;_WINDOWS;_USRDLL;_CRT_SECURE_NO_WARNINGS;CURL_STATICLIB;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>false</ConformanceMode>
-      <AdditionalIncludeDirectories>C:\Users\nick\source\repos\EvtcParserGUI\EvtcParserGUI;C:\Users\nick\source\repos\arcdps_uploader\arcdps_uploader\includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>C:\Users\nick\source\repos\arcdps_uploader\revtc;C:\Users\nick\source\repos\arcdps_uploader\arcdps_uploader\includes;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -165,7 +165,6 @@ copy /Y "$(TargetDir)$(TargetName).dll" "D:\Guild Wars 2\$(TargetName).dll"</Com
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\EvtcParserGUI\EvtcParserGUI\Revtc.h" />
     <ClInclude Include="arcdps_defs.h" />
     <ClInclude Include="arc_logging.h" />
     <ClInclude Include="arcdps_uploader.h" />
@@ -177,7 +176,7 @@ copy /Y "$(TargetDir)$(TargetName).dll" "D:\Guild Wars 2\$(TargetName).dll"</Com
     <ClInclude Include="tweetnacl.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\..\EvtcParserGUI\EvtcParserGUI\Revtc.cpp" />
+    <ClCompile Include="..\revtc\Revtc.cpp" />
     <ClCompile Include="arcdps_uploader.cpp" />
     <ClCompile Include="arc_logging.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
