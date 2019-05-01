@@ -24,19 +24,7 @@
     <ClInclude Include="arc_logging.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="SimpleIni.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="arcdps_uploader.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="tweetnacl.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Registry.hpp">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="base64.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="miniz.h">
