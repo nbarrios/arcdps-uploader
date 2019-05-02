@@ -37,14 +37,22 @@ target_include_directories(d3d9_uploader PUBLIC
     arcdps_uploader/includes
     revtc    
 )
-target_link_libraries(d3d9_uploader PUBLIC
-    ${CMAKE_SOURCE_DIR}/lib/libcurl.lib
-    ws2_32
-    crypt32
-)
 target_compile_definitions(d3d9_uploader PRIVATE
     UNICODE
     _UNICODE
     _CRT_SECURE_NO_WARNINGS
     CURL_STATICLIB
+)
+
+set(BUILD_CURL_EXE OFF CACHE BOOL "disable curl exe")
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "build static libs")
+set(BUILD_TESTING OFF CACHE BOOL "disable testing tree")
+set(HTTP_ONLY ON CACHE BOOL "http only")
+set(CURL_ZLIB OFF CACHE BOOL "no zlib")
+set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "no libssh2" FORCE)
+set(CMAKE_USE_WINSSL ON CACHE BOOL "use winssl")
+add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
+
+target_link_libraries(d3d9_uploader PUBLIC
+    libcurl
 )
