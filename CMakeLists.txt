@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.2.1)
 
-project(arcdps_uploader)
+project(arcdps_uploader LANGUAGES CXX)
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 add_library(d3d9_uploader SHARED
     arcdps_uploader/arcdps_uploader.cpp
