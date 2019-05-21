@@ -36,7 +36,7 @@ add_library(d3d9_uploader SHARED
     arcdps_uploader/cpr/util.cpp
     revtc/Revtc.cpp
 )
-target_include_directories(d3d9_uploader PUBLIC
+target_include_directories(d3d9_uploader PRIVATE
     arcdps_uploader/includes
     revtc    
 )
