@@ -4,6 +4,8 @@
 #include "arcdps_uploader.h"
 #include "imgui.h"
 #include <ShlObj.h>
+#include <wincred.h>
+#include <codecvt>
 #include <nlohmann/json.hpp>
 #include <fstream>
 #include <thread>
@@ -12,14 +14,8 @@
 #define MINIZ_NO_ARCHIVE_WRITING_APIS
 #define MINIZ_NO_ZLIB_APIS
 #include "miniz.h"
-extern "C" {
-#include "tweetnacl.h"
-#include "base64.h"
 
-int  init_randombytes();
-void cleanup_randombytes();
-void randombytes(unsigned char*, unsigned long long int);
-}
+#define UPLD_WINCRED_NAME L"Arcdps_Uploader_Raidar"
 
 using json = nlohmann::json;
 
@@ -89,49 +85,19 @@ arcdps_exports* mod_init() {
 
 	/*
 		If we successfully loaded or created an ini file, we can load our settings from it.
-		Passwords are encrypted using TweetNaCl and written to the ini base64 encoded along with a nonce,
+		Passwords are encrypted using the Windows credential manager.
 	*/
 	if (ini_enabled) {
 		cred_save = ini.GetBoolValue("Settings", "SaveUserPass", false);
 		if (cred_save) {
-			strcpy_s(username_buf, sizeof username_buf, ini.GetValue("Credentials", "Username"));
+			PCREDENTIAL cred{};
+			if (CredRead(UPLD_WINCRED_NAME, CRED_TYPE_GENERIC, 0, &cred)) {
+				std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+				std::string converted = converter.to_bytes(cred->UserName);
+				strcpy_s(username_buf, converted.c_str());
 
-			//Generate some form of machine id
-			DWORD serial = 0;
-			GetVolumeInformation(L"c:\\", NULL, 0, &serial, NULL, NULL, NULL, 0);
-			unsigned char serial_hash[crypto_hash_BYTES] = {};
-			crypto_hash(serial_hash, (unsigned char *)&serial, sizeof(DWORD));
-
-			WCHAR computerName[512] = {};
-			DWORD sz = 512;
-			GetComputerName(computerName, &sz);
-			unsigned char name_hash[crypto_hash_BYTES] = {};
-			crypto_hash(name_hash, (unsigned char*)&computerName, sizeof computerName);
-
-			unsigned char full_ident[crypto_hash_BYTES * 2];
-			memcpy(&full_ident[0], serial_hash, crypto_hash_BYTES);
-			memcpy(&full_ident[crypto_hash_BYTES], name_hash, crypto_hash_BYTES);
-
-			unsigned char temp[crypto_hash_BYTES];
-			crypto_hash(temp, full_ident, sizeof full_ident);
-
-			memcpy(ploop, temp, 32);
-
-			//Decrypt the password
-			const char *nonce_b64 = ini.GetValue("Credentials", "Once");
-			const char *crypt_b64 = ini.GetValue("Credentials", "Password");
-
-			int nonce_len = 0;
-			unsigned char * nonce = unbase64(nonce_b64, (int)strlen(nonce_b64), &nonce_len);
-			int crypt_len = 0;
-			unsigned char * crypt = unbase64(crypt_b64, (int)strlen(crypt_b64), &crypt_len);
-
-			unsigned char* msg = (unsigned char *) malloc(crypt_len);
-			int result = crypto_secretbox_open(msg, crypt, crypt_len, nonce, ploop);
-			if (result != -1) {
-				strcpy_s(pass_buf, (char*) &msg[crypto_secretbox_ZEROBYTES]);
+				memcpy_s(pass_buf, 64, cred->CredentialBlob, cred->CredentialBlobSize);
 			}
-			free(msg);
 		}
 	}
 
@@ -157,7 +123,7 @@ arcdps_exports* mod_init() {
 	/* for arcdps */
 	arc_exports.size = sizeof(arcdps_exports);
 	arc_exports.out_name = "uploader";
-	arc_exports.out_build = "0.5";
+	arc_exports.out_build = "0.6";
 	arc_exports.sig = 0x92485179;
 	arc_exports.wnd = mod_wnd;
 	arc_exports.combat = mod_combat;
@@ -168,27 +134,26 @@ arcdps_exports* mod_init() {
 /* release mod -- return ignored */
 uintptr_t mod_release() {
 	// Save our settings if we previously loaded/created an ini file
-	// Encrypt saved passwords with TweetNaCl and write crypto text base64 encoded along with a nonce
+	// Encrypt saved username/passwords using the Windows Credential Manager
 	if (ini_enabled) {
 		if (cred_save) {
-			ini.SetBoolValue("Settings", "SaveUserPass", true);
-			ini.SetValue("Credentials", "Username", username_buf);
-			
-			init_randombytes();
-			unsigned char nonce[24];
-			randombytes(nonce, sizeof nonce);
+			CREDENTIAL cred{};
+			cred.Type = CRED_TYPE_GENERIC;
+			cred.TargetName = UPLD_WINCRED_NAME;
+			cred.Persist = CRED_PERSIST_LOCAL_MACHINE;
+			std::wstring_convert<std::codecvt_utf8_utf16<wchar_t>> converter;
+			std::wstring wide = converter.from_bytes(username_buf);
+			const wchar_t* s = wide.c_str();
+			LPWSTR copy = (LPWSTR) malloc(128);
+			if (copy) { //If we can't alloc 128 bytes, we're screwed but handle it anyway
+				lstrcpy(copy, s);
+				cred.UserName = copy;
+				cred.CredentialBlob = (LPBYTE) pass_buf;
+				cred.CredentialBlobSize = 64;
 
-			char padded_msg[64 + crypto_secretbox_ZEROBYTES] = {0};
-			strcpy(&padded_msg[crypto_secretbox_ZEROBYTES], pass_buf);
-			unsigned char cryptotext[sizeof padded_msg] = {};
-			crypto_secretbox(cryptotext, (unsigned char*)padded_msg, sizeof padded_msg, nonce, ploop);
-
-			int rlen = 0;
-			char * nonce_b64 = base64(nonce, 24, &rlen);
-			ini.SetValue("Credentials", "Once", nonce_b64);
-
-			char * cryp_b64 = base64(cryptotext, sizeof cryptotext, &rlen);
-			ini.SetValue("Credentials", "Password", cryp_b64);
+				bool success = CredWrite(&cred, 0);
+				ini.SetBoolValue("Settings", "SaveUserPass", success);
+			}
 		}
 		ini.SaveFile(ini_path.string().c_str());
 	}
