@@ -23,3 +23,5 @@ If you have any doubts, refer to [Arenanet's policy on Third-Party Programs](htt
 
 ## Support
 Please open an issue and leave a detailed description of your problem, feature request, etc.
+
+*Thanks to Delta for writing and supporting Arcdps, and the Elite Insights team for their excellent parser*
