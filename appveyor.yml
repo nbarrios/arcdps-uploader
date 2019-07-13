@@ -19,4 +19,4 @@ before_build:
   - cmake -G "Visual Studio 14 2015 Win64" .
 
 build:
-  project: $(APPVEYOR_BUILD_FOLDER)\$(APPVEYOR_PROJECT_NAME).sln
+  project: $(APPVEYOR_BUILD_FOLDER)\arcdps_uploader.sln
