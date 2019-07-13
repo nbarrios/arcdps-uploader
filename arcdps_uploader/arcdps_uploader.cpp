@@ -123,7 +123,7 @@ arcdps_exports* mod_init() {
 	/* for arcdps */
 	arc_exports.size = sizeof(arcdps_exports);
 	arc_exports.out_name = "uploader";
-	arc_exports.out_build = "0.6";
+	arc_exports.out_build = "0.8";
 	arc_exports.sig = 0x92485179;
 	arc_exports.wnd = mod_wnd;
 	arc_exports.combat = mod_combat;
