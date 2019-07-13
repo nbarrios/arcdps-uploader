@@ -20,3 +20,14 @@ before_build:
 
 build:
   project: $(APPVEYOR_BUILD_FOLDER)\arcdps_uploader.sln
+
+artifacts:
+  - path: Release\d3d9_uploader.dll
+    name: Arcdps Uploader
+    
+deploy:
+  release: arcdps_uploader-v$(appveyor_build_version)
+  description: `Release`
+  provider: Github
+  artifact: Arcdps Uploader
+  draft: true
