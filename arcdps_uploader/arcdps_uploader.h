@@ -61,8 +61,9 @@ bool is_authenticated;
 std::string auth_token;
 
 fs::path log_path;
-std::future<std::vector<Log>> ft_file_list;
-std::vector<Log> file_list;
+std::future<std::vector<std::string>> ft_file_list;
+std::vector<std::string> file_list;
+std::map<std::string, Log> cached_logs;
 
 std::vector<Log> pending_upload_queue;
 std::queue<Log> upload_queue;

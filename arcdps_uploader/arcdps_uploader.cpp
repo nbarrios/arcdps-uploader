@@ -145,7 +145,7 @@ uintptr_t mod_release() {
 			std::wstring wide = converter.from_bytes(username_buf);
 			const wchar_t* s = wide.c_str();
 			LPWSTR copy = (LPWSTR) malloc(128);
-			if (copy) { //If we can't alloc 128 bytes, we're screwed but handle it anyway
+			if (copy) { //If we can't alloc 128 bytes, we're screwed but try to continue anyway
 				lstrcpy(copy, s);
 				cred.UserName = copy;
 				cred.CredentialBlob = (LPBYTE) pass_buf;
@@ -256,43 +256,45 @@ uintptr_t mod_imgui() {
 		ImGui::Separator();
 		static bool selected[30] { false };
 		for (int i = 0; i < file_list.size(); ++i) {
-			const Log& s = file_list[i];
-			std::string display;
-			if (s.parsed.valid) {
-				display = s.parsed.encounter_name;
-			}
-			else {
-				display = s.filename;
-			}
+			if (cached_logs.count(file_list[i])) {
+				const Log& s = cached_logs.at(file_list[i]);
+				std::string display;
+				if (s.parsed.valid) {
+					display = s.parsed.encounter_name;
+				}
+				else {
+					display = s.filename;
+				}
 
-			ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-			if (s.parsed.reward_at > 0.f) {
-				col = ImVec4(0.f, 1.f, 0.f, 1.f);
-			}
-			else if (success_only) {
-				continue;
-			}
+				ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
+				if (s.parsed.reward_at > 0.f) {
+					col = ImVec4(0.f, 1.f, 0.f, 1.f);
+				}
+				else if (success_only) {
+					continue;
+				}
 
-			ImGui::PushStyleColor(ImGuiCol_Text, col);
-			ImGui::PushID(s.human_time.c_str());
-			ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
-			ImGui::PopID();
-			ImGui::PopStyleColor();
-			ImGui::NextColumn();
-			ImGui::Text(s.human_time.c_str());
-			ImGui::NextColumn();
-			ImGui::SmallButton("View");
-			if (ImGui::IsItemHovered() && s.parsed.valid) {
-				ImGui::BeginTooltip();
-				create_log_table(s);
-				ImGui::EndTooltip();
-			}
-			ImGui::NextColumn();
+				ImGui::PushStyleColor(ImGuiCol_Text, col);
+				ImGui::PushID(s.human_time.c_str());
+				ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
+				ImGui::PopID();
+				ImGui::PopStyleColor();
+				ImGui::NextColumn();
+				ImGui::Text(s.human_time.c_str());
+				ImGui::NextColumn();
+				ImGui::SmallButton("View");
+				if (ImGui::IsItemHovered() && s.parsed.valid) {
+					ImGui::BeginTooltip();
+					create_log_table(s);
+					ImGui::EndTooltip();
+				}
+				ImGui::NextColumn();
 
-			if (file_list.size() < 9 && i == file_list.size() - 1) {
-				log_size.y = ImGui::GetCursorPosY();
-			} else if (i == 9) {
-				log_size.y = ImGui::GetCursorPosY();
+				if (file_list.size() < 9 && i == file_list.size() - 1) {
+					log_size.y = ImGui::GetCursorPosY();
+				} else if (i == 9) {
+					log_size.y = ImGui::GetCursorPosY();
+				}
 			}
 		}
 		ImGui::Columns(1);
@@ -301,11 +303,13 @@ uintptr_t mod_imgui() {
 		if (ImGui::Button("Add to Queue")) {
 			for (int i = 0; i < file_list.size(); ++i) {
 				if (selected[i]) {
-					const Log& log = file_list[i];
-					//Prevent double queueing the same log, inefficient search
-					auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), log);
-					if (result == pending_upload_queue.end()) {
-						pending_upload_queue.push_back(log);
+					if (cached_logs.count(file_list[i])) {
+						const Log& log = cached_logs.at(file_list[i]);
+						//Prevent double queueing the same log, inefficient search
+						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), log);
+						if (result == pending_upload_queue.end()) {
+							pending_upload_queue.push_back(log);
+						}
 					}
 				}
 			}
@@ -324,13 +328,15 @@ uintptr_t mod_imgui() {
 			std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 			std::chrono::system_clock::time_point four_hours_ago = now - std::chrono::hours(4);
 			for (int i = 0; i < file_list.size(); ++i) {
-				const Log& s = file_list[i];
-				if (s.parsed.reward_at > 0.f) {
-					if (s.time > four_hours_ago) {
-						//Prevent double queueing the same log, inefficient search
-						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
-						if (result == pending_upload_queue.end()) {
-							pending_upload_queue.push_back(s);
+				if (cached_logs.count(file_list[i])) {
+					const Log& s = cached_logs.at(file_list[i]);
+					if (s.parsed.reward_at > 0.f) {
+						if (s.time > four_hours_ago) {
+							//Prevent double queueing the same log, inefficient search
+							auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
+							if (result == pending_upload_queue.end()) {
+								pending_upload_queue.push_back(s);
+							}
 						}
 					}
 				}
@@ -557,36 +563,54 @@ void create_log_table(const Log& l) {
 }
 
 void start_async_refresh_log_list() {
-	//Early out if we are alrady waiting on a refresh
+	//Early out if we are already waiting on a refresh
 	if (ft_file_list.valid()) return;
 
 	ft_file_list = std::async(std::launch::async, [](fs::path path) {
-		std::vector<Log> file_list;
+		std::vector<std::string> file_list;
 
 		for (auto& p : fs::recursive_directory_iterator(path)) {
 			if (fs::is_regular_file(p.status())) {
-				Log log;
-				log.path = p.path();
-				log.filename = log.path.filename().replace_extension().replace_extension().string();
-				log.time = fs::last_write_time(p);
+				std::string path = p.path().string();
+				if (cached_logs.count(path) == 0) {
+					Log log;
+					log.path = p.path();
+					log.filename = log.path.filename().replace_extension().replace_extension().string();
+					log.time = fs::last_write_time(p);
+					log.parsed.valid = false;
+					cached_logs.emplace(path, log);
+				}
 
-				file_list.push_back(log);
+				file_list.push_back(path);
 			}
 		}
 
-		std::sort(file_list.begin(), file_list.end(), std::greater<Log>());
-		file_list.resize(30);
+		std::sort(file_list.begin(), file_list.end(), [&](const std::string& a, const std::string& b) -> bool {
+			if (cached_logs.count(a) && cached_logs.count(b)) {
+				const Log&log_a = cached_logs.at(a);
+				const Log&log_b = cached_logs.at(b);
 
-		for (auto& log : file_list) {
-			std::time_t tt = decltype(log.time)::clock::to_time_t(log.time);
-			std::tm* tm = std::localtime(&tt);
-			char timestr[64];
-			std::strftime(timestr, sizeof timestr, "%I:%M%p (%a %b %d)", tm);
-			log.human_time = std::string(timestr);
+				return log_a > log_b;
+			}
+			return false;
+		});
+		file_list.resize(50);
 
-			log.category = 0;
+		for (auto& path : file_list) {
+			if (cached_logs.count(path)) {
+				Log& log = cached_logs.at(path);
+				if (!log.parsed.valid) {
+					std::time_t tt = decltype(log.time)::clock::to_time_t(log.time);
+					std::tm* tm = std::localtime(&tt);
+					char timestr[64];
+					std::strftime(timestr, sizeof timestr, "%I:%M%p (%a %b %d)", tm);
+					log.human_time = std::string(timestr);
 
-			parse_async_log(log);
+					log.category = 0;
+
+					parse_async_log(log);
+				}
+			}
 		}
 
 		return file_list;
