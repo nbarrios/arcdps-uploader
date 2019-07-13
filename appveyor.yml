@@ -23,13 +23,4 @@ build:
 
 artifacts:
   - path: Release\d3d9_uploader.dll
-    name: Arcdps Uploader
-    
-deploy:
-  release: arcdps_uploader-v$(appveyor_build_version)
-  description: Release
-  provider: Github
-  artifact: Arcdps Uploader
-  draft: true
-  auth_token:
-    secure: hygwNGKTtd34sSzDVSYMD+eqSp/7moG1avDUfS2Mu+glnGQzO05UZcbIZwc3Qt/B
+    name: ArcdpsUploader
