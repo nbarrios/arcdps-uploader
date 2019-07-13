@@ -1,0 +1,18 @@
+version: '0.8.{build}'
+
+image: Visual Studio 2015
+
+platform:
+  - x64
+
+configuration:
+  - Release
+
+install:
+  - git submodule update --init --recursive
+
+before_build:
+  - cmake -G "Visual Studio 15 2017" .
+
+build:
+  project: $(APPVEYOR_BUILD_FOLDER)\$(APPVEYOR_PROJECT_NAME).sln
