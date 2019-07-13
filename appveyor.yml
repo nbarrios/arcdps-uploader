@@ -22,7 +22,7 @@ build:
   project: $(APPVEYOR_BUILD_FOLDER)\arcdps_uploader.sln
 
 after_build:
-  - 7z a arcdps_uploader_%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER\Release\d3d9_uploader.dll %APPVEYOR_BUILD_FOLDER\LICENSE 
+  - 7z a arcdps_uploader_%APPVEYOR_BUILD_VERSION%.zip %APPVEYOR_BUILD_FOLDER%\Release\d3d9_uploader.dll %APPVEYOR_BUILD_FOLDER%\LICENSE 
 
 artifacts:
   - path: arcdps_uploader_%APPVEYOR_BUILD_VERSION%.zip
