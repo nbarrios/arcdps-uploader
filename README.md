@@ -4,13 +4,13 @@ This is an extension for Arcdps that allows you to preview and upload EVTC comba
 ![Image of the Uploader](https://i.imgur.com/IHhhvfE.png)
 
 ## Usage
-Copy `d3d9_uploader.dll` to same directory as **Arcdps** (usually something like `C:\Program Files\Guild Wars 2\bin64`).
+Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releases). Unzip and copy `d3d9_uploader.dll` to same directory as **Arcdps** (usually something like `C:\Program Files\Guild Wars 2\bin64`).
 
 Use *Alt-Shift-U* to bring the uploader window up.
 
 ## Changelog
 **0.8:**
-- Cached all parsed logs to prevent any refresh delay for users with 500+ of logs
+- Cache all parsed logs to prevent any refresh delay for users with 500+ logs
 - Add Wing 7 Boss Names and ID's
 - Improve parsing accuracy (dps should match Elite Insights)
 
