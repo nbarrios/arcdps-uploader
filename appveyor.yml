@@ -24,7 +24,6 @@ build:
 artifacts:
   - path: Release\d3d9_uploader.dll
     name: Arcdps Uploader
-    type: zip
     
 deploy:
   release: arcdps_uploader-v$(appveyor_build_version)
