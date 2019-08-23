@@ -123,7 +123,7 @@ arcdps_exports* mod_init() {
 	/* for arcdps */
 	arc_exports.size = sizeof(arcdps_exports);
 	arc_exports.out_name = "uploader";
-	arc_exports.out_build = "0.8";
+	arc_exports.out_build = "0.8.1";
 	arc_exports.sig = 0x92485179;
 	arc_exports.wnd = mod_wnd;
 	arc_exports.combat = mod_combat;
@@ -223,16 +223,6 @@ uintptr_t mod_imgui() {
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 1.f, 0.f, 0.25f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 1.f, 0.f, 0.5f));
 		ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.f, 1.f, 0.f, 0.25f));
-
-		if (ImGui::CollapsingHeader("Login##header")) {
-			ImGui::TextUnformatted("gw2raidar.com");
-			ImGui::InputText("username", username_buf, sizeof username_buf);
-			ImGui::InputText("password", pass_buf, sizeof pass_buf, ImGuiInputTextFlags_Password);
-			ImGui::Checkbox("Save", &cred_save);
-			if (ImGui::Button("Login##button")) {
-				start_async_authentication();
-			}
-		}
 
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.f, 1.f, 0.f, 0.5f));
 		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 1.f, 0.f, 0.25f));
@@ -367,27 +357,11 @@ uintptr_t mod_imgui() {
 		}
 
 		static int item = 0;
+		//TODO: Remove these since dps.report doesn't support cats or tags.
 		static const char *items[] = { "None", "Guild / Static", "Training", "PUG", "Low Man / Sells" };
-		ImGui::Combo("Category", &item, items, 5);
 		static char tags[64];
-		ImGui::InputText("Tags", tags, sizeof tags);
 
 		bool upload_started = false;
-		if (ImGui::Button("Upload to gw2raidar.com")) {
-			if (is_authenticated) {
-				add_pending_upload_logs(pending_upload_queue, Destination::GW2RAIDAR, item, tags);
-				pending_upload_queue.clear();
-			}
-			else {
-				StatusMessage status;
-				status.msg = "Please log in first.";
-				status_messages.push_back(status);
-			}
-		}
-		else {
-			upload_started = true;
-		}
-
 		if (ImGui::Button("Upload to dps.report")) {
 				add_pending_upload_logs(pending_upload_queue, Destination::DPSREPORT, item, tags);
 				pending_upload_queue.clear();
