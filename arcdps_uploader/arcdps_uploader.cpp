@@ -758,23 +758,7 @@ void upload_thread_loop() {
 			}
 
 			cpr::Response response;
-			if (log.dest == Destination::GW2RAIDAR) {
-				if (log.category == 0) {
-					response = cpr::Put(
-						cpr::Url{ "https://www.gw2raidar.com/api/v2/encounters/new" },
-						cpr::Header{ {"Authorization", "Token " + log.auth_token} },
-						cpr::Multipart{ {"file", cpr::File{log.path.string()}}, {"tags", log.tags} }
-						);
-				}
-				else {
-					response = cpr::Put(
-						cpr::Url{ "https://www.gw2raidar.com/api/v2/encounters/new" },
-						cpr::Header{ {"Authorization", "Token " + log.auth_token} },
-						cpr::Multipart{ {"file", cpr::File{log.path.string()}}, {"category", log.category}, {"tags", log.tags} }
-						);
-				}
-			}
-			else if (log.dest == Destination::DPSREPORT) {
+			if (log.dest == Destination::DPSREPORT) {
 				response = cpr::Post(
 					cpr::Url{"https://dps.report/uploadContent"},
 					cpr::Multipart{ {"file", cpr::File{log.path.string()}}, {"json", "1"} }

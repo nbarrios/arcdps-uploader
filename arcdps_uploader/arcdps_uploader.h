@@ -11,7 +11,6 @@
 namespace fs = std::filesystem;
 
 enum class Destination {
-	GW2RAIDAR,
 	DPSREPORT
 };
 
