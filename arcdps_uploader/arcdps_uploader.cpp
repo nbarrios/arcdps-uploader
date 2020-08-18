@@ -14,6 +14,7 @@
 #define MINIZ_NO_ARCHIVE_WRITING_APIS
 #define MINIZ_NO_ZLIB_APIS
 #include "miniz.h"
+#include <loguru.hpp>
 
 #define UPLD_WINCRED_NAME L"Arcdps_Uploader_Raidar"
 
@@ -58,6 +59,10 @@ unsigned char ploop[32] = {};
 
 /* initialize mod -- return table that arcdps will use for callbacks */
 arcdps_exports* mod_init() {
+	int argc = 1;
+	char* argv[] = { "uploader.log", nullptr };
+	loguru::init(argc, argv);
+
 	is_open = false;
 	ini_enabled = true;
 	cred_save = false;
@@ -72,22 +77,27 @@ arcdps_exports* mod_init() {
 		std::string execstr(utf_path);
 		fs::path full_exec_path(execstr);
 		ini_path = full_exec_path.parent_path() / "addons/arcdps/uploader.ini";
+		fs::path log_path = full_exec_path.parent_path() / "addons/arcdps/uploader.log";
+		loguru::add_file(log_path.string().c_str(), loguru::Append, loguru::Verbosity_MAX);
 
 		ini.SetUnicode();
 		SI_Error error = ini.LoadFile(ini_path.string().c_str());
 		if (error < 0) {
 			ini_enabled = false;
+			LOG_F(INFO, "Failed to load/create INI");
 		}
 	}
 	else {
 		ini_enabled = false;
 	}
 
+	LOG_F(INFO, "Init");
 	/*
 		If we successfully loaded or created an ini file, we can load our settings from it.
 		Passwords are encrypted using the Windows credential manager.
 	*/
 	if (ini_enabled) {
+		LOG_F(INFO, "INI Enabled");
 		cred_save = ini.GetBoolValue("Settings", "SaveUserPass", false);
 		if (cred_save) {
 			PCREDENTIAL cred{};
@@ -123,7 +133,7 @@ arcdps_exports* mod_init() {
 	/* for arcdps */
 	arc_exports.size = sizeof(arcdps_exports);
 	arc_exports.out_name = "uploader";
-	arc_exports.out_build = "0.8.1";
+	arc_exports.out_build = "0.9.0";
 	arc_exports.sig = 0x92485179;
 	arc_exports.wnd = mod_wnd;
 	arc_exports.combat = mod_combat;
@@ -403,7 +413,7 @@ uintptr_t mod_imgui() {
 		{
 			ImGui::SetScrollPosHere();
 		}
-		status_message_count = status_messages.size();
+		status_message_count = (uint8_t) status_messages.size();
 
 		ImGui::EndChild();
 
@@ -417,7 +427,7 @@ uintptr_t mod_imgui() {
 
 			for (const auto& status : status_messages) {
 				if (status.url.size() != 0) {
-					uint32_t minutes = status.duration / 60;
+					uint32_t minutes = (uint32_t) status.duration / 60;
 					uint32_t secs = status.duration % 60;
 					char t[64];
 					sprintf_s(t, "%02d:%02d", minutes, secs);
@@ -547,10 +557,13 @@ void start_async_refresh_log_list() {
 			if (fs::is_regular_file(p.status())) {
 				std::string path = p.path().string();
 				if (cached_logs.count(path) == 0) {
+					LOG_F(INFO, "Found new log: %s", path.c_str());
 					Log log;
 					log.path = p.path();
 					log.filename = log.path.filename().replace_extension().replace_extension().string();
-					log.time = fs::last_write_time(p);
+					using namespace std::chrono;
+					log.time = time_point_cast<system_clock::duration>(
+						fs::last_write_time(p) - fs::file_time_type::clock::now() + system_clock::now());
 					log.parsed.valid = false;
 					cached_logs.emplace(path, log);
 				}
@@ -559,6 +572,7 @@ void start_async_refresh_log_list() {
 			}
 		}
 
+		LOG_F(INFO, "Start sorting logs");
 		std::sort(file_list.begin(), file_list.end(), [&](const std::string& a, const std::string& b) -> bool {
 			if (cached_logs.count(a) && cached_logs.count(b)) {
 				const Log&log_a = cached_logs.at(a);
@@ -569,12 +583,14 @@ void start_async_refresh_log_list() {
 			return false;
 		});
 		file_list.resize(50);
+		LOG_F(INFO, "Finished sorting and truncating logs");
 
+		LOG_F(INFO, "Start parsing logs");
 		for (auto& path : file_list) {
 			if (cached_logs.count(path)) {
 				Log& log = cached_logs.at(path);
 				if (!log.parsed.valid) {
-					std::time_t tt = decltype(log.time)::clock::to_time_t(log.time);
+					std::time_t tt = std::chrono::system_clock::to_time_t(log.time);
 					std::tm* tm = std::localtime(&tt);
 					char timestr[64];
 					std::strftime(timestr, sizeof timestr, "%I:%M%p (%a %b %d)", tm);
@@ -582,10 +598,12 @@ void start_async_refresh_log_list() {
 
 					log.category = 0;
 
+					LOG_F(INFO, "Parsing: %s", log.filename.c_str());
 					parse_async_log(log);
 				}
 			}
 		}
+		LOG_F(INFO, "Finished parsing logs");
 
 		return file_list;
 	}, log_path);

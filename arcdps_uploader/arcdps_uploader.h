@@ -8,7 +8,7 @@
 #include <queue>
 #include "Revtc.h"
 
-namespace fs = std::experimental::filesystem;
+namespace fs = std::filesystem;
 
 enum class Destination {
 	GW2RAIDAR,
@@ -19,7 +19,7 @@ struct Log {
 	fs::path path;
 	std::string filename;
 	std::string human_time;
-	fs::file_time_type time;
+	std::chrono::system_clock::time_point time;
 	int category;
 	std::string tags;
 	std::string auth_token;
