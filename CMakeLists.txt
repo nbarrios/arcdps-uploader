@@ -5,6 +5,8 @@ project(arcdps_uploader LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+set(GW2_DIR "" CACHE PATH "GW2 Directory")
+
 add_library(d3d9_uploader SHARED
     arcdps_uploader/arcdps_uploader.cpp
     arcdps_uploader/arcdps_uploader.h
@@ -59,9 +61,10 @@ set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "no libssh2" FORCE)
 set(CMAKE_USE_WINSSL ON CACHE BOOL "use winssl")
 add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
 
-add_subdirectory(${CMAKE_SOURCE_DIR}/hiberlite)
-
 target_link_libraries(d3d9_uploader PUBLIC
     libcurl
-    hiberlite
+)
+
+add_custom_command(TARGET d3d9_uploader POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:d3d9_uploader> ${GW2_DIR}/bin64/$<TARGET_FILE_NAME:d3d9_uploader>
 )
