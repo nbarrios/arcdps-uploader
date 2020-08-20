@@ -11,12 +11,15 @@ add_library(d3d9_uploader SHARED
     arcdps_uploader/arcdps_defs.h
     arcdps_uploader/arc_logging.cpp
     arcdps_uploader/arc_logging.h
+    arcdps_uploader/Uploader.cpp
+    arcdps_uploader/Uploader.h
     arcdps_uploader/imgui.cpp
     arcdps_uploader/imgui.h
     arcdps_uploader/imgui_demo.cpp
     arcdps_uploader/imgui_draw.cpp
     arcdps_uploader/imgui_internal.h
     arcdps_uploader/imconfig.h
+    arcdps_uploader/loguru.cpp
     arcdps_uploader/miniz.c
     arcdps_uploader/miniz.h
     arcdps_uploader/randombytes.c
@@ -56,6 +59,9 @@ set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "no libssh2" FORCE)
 set(CMAKE_USE_WINSSL ON CACHE BOOL "use winssl")
 add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
 
+add_subdirectory(${CMAKE_SOURCE_DIR}/hiberlite)
+
 target_link_libraries(d3d9_uploader PUBLIC
     libcurl
+    hiberlite
 )
