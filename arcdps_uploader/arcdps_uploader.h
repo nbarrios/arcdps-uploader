@@ -3,8 +3,7 @@
 #include "arcdps_defs.h"
 
 /* proto/globals */
-uint32_t cbtcount = 0;
-char* arcvers;
+extern char* arcvers;
 
 void dll_init(HANDLE hModule);
 void dll_exit();

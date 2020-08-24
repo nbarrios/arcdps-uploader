@@ -1,84 +1,69 @@
 #include "Uploader.h"
 #include "imgui.h"
-#include <loguru.hpp>
 #include <nlohmann/json.hpp>
 #include <ShlObj.h>
 #include <thread>
 #define MINIZ_NO_ARCHIVE_WRITING_APIS
 #define MINIZ_NO_ZLIB_APIS
 #include "miniz.h"
+#include "loguru.hpp"
 
 using json = nlohmann::json;
 
-Uploader::Uploader()
+inline auto initStorage(const std::string& path)
 {
-	int argc = 1;
-	char* argv[] = { "uploader.log", nullptr };
-	loguru::init(argc, argv);
+	using namespace sqlite_orm;
+	return make_storage(path,
+						make_table("logs",
+								   make_column("id", &Log::id, autoincrement(), primary_key()),
+								   make_column("path", &Log::path),
+								   make_column("filename", &Log::filename),
+								   make_column("human_time", &Log::human_time),
+								   make_column("time", &Log::time),
+								   make_column("uploaded", &Log::uploaded),
+								   make_column("report_id", &Log::report_id),
+								   make_column("permalink", &Log::permalink),
+								   make_column("boss_id", &Log::boss_id),
+								   make_column("success", &Log::success)
+						));
+}
+using Storage = decltype(initStorage(""));
+static std::unique_ptr<Storage> storage;
 
-	is_open = false;
-	ini_enabled = true;
+Uploader::Uploader(fs::path data_path)
+	: is_open(false)
+	, ini_enabled(true)
+{
+	//INI
+	ini_path = data_path / "uploader.ini";
+	ini.SetUnicode();
+	SI_Error error = ini.LoadFile(ini_path.string().c_str());
+	if (error == SI_OK) {
+		LOG_F(INFO, "Loaded INI file");
+	}
 
-	/*
-		Find the GW2 exec path and put our ini in the same folder as the arcdps settings.
-	*/
-	WCHAR exec_path[MAX_PATH];
-	if (GetModuleFileName(0, exec_path, MAX_PATH)) {
+	//Sqlite Database
+	fs::path db_path = data_path / "uploader.db";
+	storage = std::make_unique<Storage>(initStorage(db_path.string()));
+	storage->open_forever();
+	storage->sync_schema(true);
+
+	/* my documents */
+	WCHAR my_documents[MAX_PATH];
+	HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, my_documents);
+	if (result == S_OK) {
+		//TODO: disable the whole thing if we can't find docs?
 		CHAR utf_path[MAX_PATH];
-		WideCharToMultiByte(CP_UTF8, 0, exec_path, -1, utf_path, MAX_PATH, NULL, NULL);
-		std::string execstr(utf_path);
-		fs::path full_exec_path(execstr);
-
-		//INI
-		ini_path = full_exec_path.parent_path() / "addons/arcdps/uploader.ini";
-		ini.SetUnicode();
-		SI_Error error = ini.LoadFile(ini_path.string().c_str());
-		if (error < 0) {
-			ini_enabled = false;
-			LOG_F(INFO, "Failed to load/create INI");
-		}
-
-		//Sqlite Database
-		fs::path db_path = full_exec_path.parent_path() / "addons/arcdps/uploader.db";
-
-		//Loguru Log
-		fs::path log_path = full_exec_path.parent_path() / "addons/arcdps/uploader.log";
-		loguru::add_file(log_path.string().c_str(), loguru::Append, loguru::Verbosity_MAX);
-
-		LOG_F(INFO, "Init Success");
-		/*
-			If we successfully loaded or created an ini file, we can load our settings from it.
-			Passwords are encrypted using the Windows credential manager.
-		*/
-		if (ini_enabled) {
-			LOG_F(INFO, "INI Enabled");
-		}
-
-		/* my documents */
-		WCHAR my_documents[MAX_PATH];
-		HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, my_documents);
-
-		if (result == S_OK) {
-			//TODO: disable the whole thing if we can't find docs?
-			CHAR utf_path[MAX_PATH];
-			WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
-			std::string mydocs = std::string(utf_path);
-			fs::path mydocs_path = fs::path(mydocs);
-			log_path = mydocs_path / "Guild Wars 2/addons/arcdps/arcdps.cbtlogs/";
-
-			start_async_refresh_log_list();
-
-			// Create a thread that spins, waiting for uploads to process
-			upload_thread_run = true;
-			upload_thread = std::thread(&Uploader::upload_thread_loop, this);
-		}
+		WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
+		std::string mydocs = std::string(utf_path);
+		fs::path mydocs_path = fs::path(mydocs);
+		log_path = mydocs_path / "Guild Wars 2/addons/arcdps/arcdps.cbtlogs/";
 	}
 }
 
 Uploader::~Uploader()
 {
 	// Save our settings if we previously loaded/created an ini file
-	// Encrypt saved username/passwords using the Windows Credential Manager
 	if (ini_enabled) {
 		ini.SaveFile(ini_path.string().c_str());
 	}
@@ -92,7 +77,11 @@ Uploader::~Uploader()
 
 uintptr_t Uploader::imgui_tick()
 {
+#ifdef STANDALONE
+	if (1) {
+#else
 	if (is_open) {
+#endif
 		poll_async_refresh_log_list();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildWindowRounding, 5.0f);
@@ -127,61 +116,57 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::TextUnformatted(""); ImGui::NextColumn();
 		ImGui::Separator();
 		static bool selected[30] { false };
-		for (int i = 0; i < file_list.size(); ++i) {
-			if (cached_logs.count(file_list[i])) {
-				const Log& s = cached_logs.at(file_list[i]);
-				std::string display;
-				if (s.parsed.valid) {
-					display = s.parsed.encounter_name;
-				}
-				else {
-					display = s.filename;
-				}
+		for (int i = 0; i < logs.size(); ++i) {
+			const Log& s = logs.at(i);
+			std::string display;
+			if (s.uploaded) {
+				display = s.filename;
+			}
+			else {
+				display = s.filename;
+			}
 
-				ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-				if (s.parsed.reward_at > 0.f) {
-					col = ImVec4(0.f, 1.f, 0.f, 1.f);
-				}
-				else if (success_only) {
-					continue;
-				}
+			ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
+			if (s.uploaded) {
+				col = ImVec4(0.f, 1.f, 0.f, 1.f);
+			}
+			else if (success_only) {
+				continue;
+			}
 
-				ImGui::PushStyleColor(ImGuiCol_Text, col);
-				ImGui::PushID(s.human_time.c_str());
-				ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
-				ImGui::PopID();
-				ImGui::PopStyleColor();
-				ImGui::NextColumn();
-				ImGui::Text(s.human_time.c_str());
-				ImGui::NextColumn();
-				ImGui::SmallButton("View");
-				if (ImGui::IsItemHovered() && s.parsed.valid) {
-					ImGui::BeginTooltip();
-					create_log_table(s);
-					ImGui::EndTooltip();
-				}
-				ImGui::NextColumn();
+			ImGui::PushStyleColor(ImGuiCol_Text, col);
+			ImGui::PushID(s.human_time.c_str());
+			ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
+			ImGui::PopID();
+			ImGui::PopStyleColor();
+			ImGui::NextColumn();
+			ImGui::Text(s.human_time.c_str());
+			ImGui::NextColumn();
+			ImGui::SmallButton("View");
+			if (ImGui::IsItemHovered() && s.uploaded) {
+				ImGui::BeginTooltip();
+				create_log_table(s);
+				ImGui::EndTooltip();
+			}
+			ImGui::NextColumn();
 
-				if (file_list.size() < 9 && i == file_list.size() - 1) {
-					log_size.y = ImGui::GetCursorPosY();
-				} else if (i == 9) {
-					log_size.y = ImGui::GetCursorPosY();
-				}
+			if (logs.size() < 9 && i == logs.size() - 1) {
+				log_size.y = ImGui::GetCursorPosY();
+			} else if (i == 9) {
+				log_size.y = ImGui::GetCursorPosY();
 			}
 		}
 		ImGui::Columns(1);
 		ImGui::EndChild();
 
 		if (ImGui::Button("Add to Queue")) {
-			for (int i = 0; i < file_list.size(); ++i) {
+			for (int i = 0; i < logs.size(); ++i) {
 				if (selected[i]) {
-					if (cached_logs.count(file_list[i])) {
-						const Log& log = cached_logs.at(file_list[i]);
-						//Prevent double queueing the same log, inefficient search
-						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), log);
-						if (result == pending_upload_queue.end()) {
-							pending_upload_queue.push_back(log);
-						}
+					const Log& log = logs.at(i);
+					//Prevent double queueing the same log, inefficient search
+					auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), log);
+					if (result == pending_upload_queue.end()) {
+						pending_upload_queue.push_back(log);
 					}
 				}
 			}
@@ -199,16 +184,14 @@ uintptr_t Uploader::imgui_tick()
 		if (ImGui::Button("Queue Recent Clears")) {
 			std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
 			std::chrono::system_clock::time_point three_hours_ago = now - std::chrono::hours(3);
-			for (int i = 0; i < file_list.size(); ++i) {
-				if (cached_logs.count(file_list[i])) {
-					const Log& s = cached_logs.at(file_list[i]);
-					if (s.parsed.reward_at > 0.f) {
-						if (s.time > three_hours_ago) {
-							//Prevent double queueing the same log, inefficient search
-							auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
-							if (result == pending_upload_queue.end()) {
-								pending_upload_queue.push_back(s);
-							}
+			for (int i = 0; i < logs.size(); ++i) {
+				const Log& s = logs.at(i);
+				if (s.uploaded) {
+					if (s.time > three_hours_ago) {
+						//Prevent double queueing the same log, inefficient search
+						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
+						if (result == pending_upload_queue.end()) {
+							pending_upload_queue.push_back(s);
 						}
 					}
 				}
@@ -223,8 +206,8 @@ uintptr_t Uploader::imgui_tick()
 
 		for (auto& l : pending_upload_queue) {
 			std::string display;
-			if ((uint16_t)l.parsed.area_id) {
-				display = l.parsed.encounter_name;
+			if (l.uploaded) {
+				display = l.filename;
 			}
 			else {
 				display = l.filename;
@@ -245,7 +228,7 @@ uintptr_t Uploader::imgui_tick()
 
 		bool upload_started = false;
 		if (ImGui::Button("Upload to dps.report")) {
-				add_pending_upload_logs(pending_upload_queue, item, tags);
+				add_pending_upload_logs(pending_upload_queue);
 				pending_upload_queue.clear();
 		}
 		else {
@@ -331,6 +314,7 @@ uintptr_t Uploader::imgui_tick()
 }
 
 void Uploader::create_log_table(const Log& l) {
+	/*
 	auto seconds_to_string = [](uint64_t seconds) -> std::string {
 		uint32_t minutes = (uint32_t)seconds / 60;
 		float secondsf = fmodf((float)seconds, 60.f);
@@ -416,66 +400,74 @@ void Uploader::create_log_table(const Log& l) {
 	size.y = ImGui::GetCursorPosY();
 
 	ImGui::EndChild();
+	*/
 }
 
 void Uploader::start_async_refresh_log_list() {
+	using namespace sqlite_orm;
 	//Early out if we are already waiting on a refresh
 	if (ft_file_list.valid()) return;
 
 	ft_file_list = std::async(std::launch::async, [&](fs::path path) {
-		std::vector<std::string> file_list;
+		std::vector<Log> file_list;
+		auto filenames = storage->select(&Log::filename);
+		std::set<std::string> filename_set(filenames.begin(), filenames.end());
+		std::vector<Log> queue;
 
+		storage->begin_transaction();
 		for (auto& p : fs::recursive_directory_iterator(path)) {
 			if (fs::is_regular_file(p.status())) {
-				std::string path = p.path().string();
-				if (cached_logs.count(path) == 0) {
-					LOG_F(INFO, "Found new log: %s", path.c_str());
+				auto& fn = p.path().filename().replace_extension().replace_extension().string();
+				if (filename_set.count(fn) == 0) {
+					LOG_F(INFO, "Found new log: %s", p.path().string().c_str());
 					Log log;
-					log.path = p.path();
-					log.filename = log.path.filename().replace_extension().replace_extension().string();
+					log.id = -1;
+					log.path = p;
+					log.filename = fn;
+					//get_time needs separators to parse
+					auto temp = log.filename;
+					temp.insert(4, "-");
+					temp.insert(7, "-");
+					temp.insert(13, "-");
+					temp.insert(16, "-");
 					std::tm tm = {};
-					std::stringstream ss(log.filename);
-					ss >> std::get_time(&tm, "%Y%m%d-%H%M");
+					std::stringstream ss(temp);
+					ss >> std::get_time(&tm, "%Y-%m-%d-%H-%M-%S");
+					if (ss.fail())
+					{
+						LOG_F(INFO, "Failed to parse time.");
+					}
+					tm.tm_isdst = -1;
 					log.time = std::chrono::system_clock::from_time_t(std::mktime(&tm));
-					log.parsed.valid = false;
-					cached_logs.emplace(path, log);
-				}
 
-				file_list.push_back(path);
-			}
-		}
-
-		LOG_F(INFO, "Start sorting logs");
-		std::sort(file_list.begin(), file_list.end(), [&](const std::string& a, const std::string& b) -> bool {
-			if (cached_logs.count(a) && cached_logs.count(b)) {
-				const Log&log_a = cached_logs.at(a);
-				const Log&log_b = cached_logs.at(b);
-
-				return log_a > log_b;
-			}
-			return false;
-		});
-		file_list.resize(50);
-		LOG_F(INFO, "Finished sorting and truncating logs");
-
-		LOG_F(INFO, "Start parsing logs");
-		for (auto& path : file_list) {
-			if (cached_logs.count(path)) {
-				Log& log = cached_logs.at(path);
-				if (!log.parsed.valid) {
-					std::time_t tt = std::chrono::system_clock::to_time_t(log.time);
-					std::tm* tm = std::localtime(&tt);
 					char timestr[64];
-					std::strftime(timestr, sizeof timestr, "%I:%M%p (%a %b %d)", tm);
+					std::strftime(timestr, sizeof timestr, "%I:%M%p (%a %b %d)", &tm);
 					log.human_time = std::string(timestr);
 
-					LOG_F(INFO, "Parsing: %s", log.filename.c_str());
-					parse_async_log(log);
+					log.uploaded = false;
+					log.boss_id = 0;
+					log.success = false;
+
+					try
+					{
+						log.id = storage->insert(log);
+						queue.push_back(log);
+					}
+					catch (std::system_error e)
+					{
+						LOG_F(ERROR, "Sqlite insert error: %s", e.what());
+					}
+					catch (...)
+					{
+						LOG_F(ERROR, "Unknown Sqlite insert error.");
+					}
 				}
 			}
 		}
-		LOG_F(INFO, "Finished parsing logs");
+		storage->commit();
+		add_pending_upload_logs(queue);
 
+		file_list = storage->get_all<Log>(order_by(&Log::time).desc(), limit(50));
 		return file_list;
 	}, log_path);
 }
@@ -494,8 +486,9 @@ void Uploader::parse_async_log(Log& aLog) {
 	rewind(log);
 
 	unsigned char * log_data = nullptr;
+	fs::path path = fs::path(aLog.path);
 	//Attempt to extract. We assume that the zip extension is accurate and the archive contains an evtc file as its only entry
-	if (aLog.path.extension().string() == ".zip" || aLog.path.extension().string() == ".zevtc") {
+	if (path.extension().string() == ".zip" || path.extension().string() == ".zevtc") {
 		mz_bool status;
 		mz_zip_archive zip_archive;
 		mz_zip_zero_struct(&zip_archive);
@@ -531,7 +524,7 @@ void Uploader::parse_async_log(Log& aLog) {
 	if (log_data && log_file_size) {
 		Revtc::Parser *parser = new Revtc::Parser(log_data, log_file_size);
 		Revtc::Log log = parser->parse();
-		aLog.parsed = log;
+		//aLog.parsed = log;
 		delete parser;
 	}
 	free(log_data);
@@ -540,12 +533,19 @@ void Uploader::parse_async_log(Log& aLog) {
 void Uploader::poll_async_refresh_log_list() {
 	if (ft_file_list.valid()) {
 		if (ft_file_list.wait_for(std::chrono::milliseconds(1)) == std::future_status::ready) {
-			file_list = ft_file_list.get();
+			logs = ft_file_list.get();
 		}
 	}
 }
 
-void Uploader::add_pending_upload_logs(std::vector<Log>& queue, int category, std::string tags) {
+void Uploader::start_upload_thread()
+{
+	// Create a thread that spins, waiting for uploads to process
+	upload_thread_run = true;
+	upload_thread = std::thread(&Uploader::upload_thread_loop, this);
+}
+
+void Uploader::add_pending_upload_logs(std::vector<Log>& queue) {
 	{
 		std::lock_guard<std::mutex> lk(ut_mutex);
 		std::reverse(queue.begin(), queue.end());
@@ -573,12 +573,7 @@ void Uploader::upload_thread_loop() {
 
 		if (process_log) {
 			std::string display;
-			if ((uint16_t)log.parsed.area_id) {
-				display = log.parsed.encounter_name;
-			}
-			else {
-				display = log.filename;
-			}
+			display = log.filename;
 
 			StatusMessage start;
 			start.msg = "Uploading " + display + " - " + log.human_time + ".";
@@ -598,13 +593,13 @@ void Uploader::upload_thread_loop() {
 				json parsed = json::parse(response.text);
 				status.msg = "Uploaded " + display + " - " + log.human_time + ".";
 				status.url = parsed.value("permalink", "");
-				if ((uint16_t)log.parsed.area_id) {
-					status.encounter = log.parsed.encounter_name;
-					status.duration = log.parsed.encounter_duration;
+				if (log.uploaded) {
+					status.encounter = log.filename;//log.parsed.encounter_name;
+					status.duration = 0;//log.parsed.encounter_duration;
 				}
 				else {
 					status.encounter = log.filename;
-					status.duration = log.parsed.encounter_duration;
+					status.duration = 0;//log.parsed.encounter_duration;
 				}
 			}
 			else if (response.status_code == 401) {

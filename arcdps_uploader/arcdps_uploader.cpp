@@ -8,7 +8,9 @@
 #include <fstream>
 #include <chrono>
 #include <iomanip>
+#include "loguru.hpp"
 
+char* arcvers;
 static arcdps_exports exports;
 static Uploader* up;
 
@@ -49,7 +51,24 @@ extern "C" __declspec(dllexport) void* get_release_addr() {
 
 /* initialize mod -- return table that arcdps will use for callbacks */
 arcdps_exports* mod_init() {
-	up = new Uploader();
+	int argc = 1;
+	char* argv[] = { "uploader.log", nullptr };
+	loguru::init(argc, argv);
+
+	const fs::path uploader_data_path = "./addons/uploader/";
+	if (!fs::exists(uploader_data_path))
+	{
+		fs::create_directory(uploader_data_path);
+	}
+
+	//Loguru Log
+	fs::path log_path = uploader_data_path / "uploader.log";
+	loguru::add_file(log_path.string().c_str(), loguru::Truncate, loguru::Verbosity_MAX);
+
+	//Uploader
+	up = new Uploader(uploader_data_path);
+	up->start_async_refresh_log_list();
+	up->start_upload_thread();
 
 	/* for arcdps */
 	exports.size = sizeof(arcdps_exports);

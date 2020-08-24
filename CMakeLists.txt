@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.2.1)
+cmake_minimum_required(VERSION 3.8.0)
 
 project(arcdps_uploader LANGUAGES CXX)
 
@@ -7,25 +7,19 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(GW2_DIR "" CACHE PATH "GW2 Directory")
 
-add_library(d3d9_uploader SHARED
+set(SOURCE
     arcdps_uploader/arcdps_uploader.cpp
-    arcdps_uploader/arcdps_uploader.h
-    arcdps_uploader/arcdps_defs.h
     arcdps_uploader/arc_logging.cpp
-    arcdps_uploader/arc_logging.h
     arcdps_uploader/Uploader.cpp
-    arcdps_uploader/Uploader.h
+    arcdps_uploader/Log.cpp
     arcdps_uploader/imgui.cpp
-    arcdps_uploader/imgui.h
     arcdps_uploader/imgui_demo.cpp
     arcdps_uploader/imgui_draw.cpp
-    arcdps_uploader/imgui_internal.h
-    arcdps_uploader/imconfig.h
     arcdps_uploader/loguru.cpp
     arcdps_uploader/miniz.c
-    arcdps_uploader/miniz.h
     arcdps_uploader/randombytes.c
     arcdps_uploader/tweetnacl.c
+    arcdps_uploader/sqlite3.c
     arcdps_uploader/cpr/auth.cpp
     arcdps_uploader/cpr/cookies.cpp
     arcdps_uploader/cpr/cprtypes.cpp
@@ -41,7 +35,24 @@ add_library(d3d9_uploader SHARED
     arcdps_uploader/cpr/util.cpp
     revtc/Revtc.cpp
 )
-target_include_directories(d3d9_uploader PRIVATE
+
+set(HEADERS
+    arcdps_uploader/arcdps_uploader.h
+    arcdps_uploader/arcdps_defs.h
+    arcdps_uploader/arc_logging.h
+    arcdps_uploader/Uploader.h
+    arcdps_uploader/Log.h
+    arcdps_uploader/imgui.h
+    arcdps_uploader/imgui_internal.h
+    arcdps_uploader/imconfig.h
+    arcdps_uploader/miniz.h
+)
+
+add_library(d3d9_uploader SHARED
+    ${SOURCE}
+    ${HEADERS}
+)
+include_directories(
     arcdps_uploader/includes
     revtc    
 )
@@ -51,6 +62,24 @@ target_compile_definitions(d3d9_uploader PRIVATE
     _CRT_SECURE_NO_WARNINGS
     CURL_STATICLIB
 )
+target_compile_options(d3d9_uploader PUBLIC "/Zc:__cplusplus")
+
+add_executable(uploader_standalone
+    arcdps_uploader/main.cpp
+    arcdps_uploader/imgui_impl_dx9.cpp
+    arcdps_uploader/imgui_impl_dx9.h
+    ${SOURCE}
+    ${HEADERS}
+)
+target_compile_definitions(uploader_standalone PRIVATE
+    UNICODE
+    _UNICODE
+    _CRT_SECURE_NO_WARNINGS
+    CURL_STATICLIB
+    STANDALONE
+)
+target_compile_options(uploader_standalone PUBLIC "/Zc:__cplusplus")
+set_property(TARGET uploader_standalone PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${GW2_DIR})
 
 set(BUILD_CURL_EXE OFF CACHE BOOL "disable curl exe")
 set(BUILD_SHARED_LIBS OFF CACHE BOOL "build static libs")
@@ -63,6 +92,11 @@ add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
 
 target_link_libraries(d3d9_uploader PUBLIC
     libcurl
+)
+
+target_link_libraries(uploader_standalone PUBLIC
+    libcurl
+    D3d9
 )
 
 add_custom_command(TARGET d3d9_uploader POST_BUILD
