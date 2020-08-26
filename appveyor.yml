@@ -13,6 +13,10 @@ configuration:
   - Release
 
 install:
+  - cd C:\Tools\vcpkg
+  - git pull
+  - .\bootstrap-vcpkg.bat
+  - cd %APPVEYOR_BUILD_FOLDER%
   - vcpkg install curl[core,brotli,winssl]:x64-windows-static
   - git submodule update --init --recursive
 
