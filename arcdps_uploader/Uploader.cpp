@@ -21,9 +21,12 @@ inline auto initStorage(const std::string& path)
 								   make_column("human_time", &Log::human_time),
 								   make_column("time", &Log::time),
 								   make_column("uploaded", &Log::uploaded),
+								   make_column("error", &Log::error),
 								   make_column("report_id", &Log::report_id),
 								   make_column("permalink", &Log::permalink),
 								   make_column("boss_id", &Log::boss_id),
+								   make_column("boss_name", &Log::boss_name),
+								   make_column("json_available", &Log::json_available),
 								   make_column("success", &Log::success)
 						));
 }
@@ -98,14 +101,22 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.f, 1.f, 0.f, 0.5f));
 		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 1.f, 0.f, 0.25f));
 
-		ImGui::Spacing();
-		ImGui::Spacing();
+		static bool success_only = false;
 
 		static ImVec2 log_size(450, 258);
+		ImGui::AlignFirstTextHeightToWidgets();
 		ImGui::TextUnformatted("Recent Logs");
+		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 170.f);
+		ImGui::Checkbox("Filter Wipes", &success_only);
+		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 53.f);
+		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 3.f));
+		if (ImGui::Button("Refresh")) {
+			start_async_refresh_log_list();
+		}
+		ImGui::PopStyleVar();
+
 		ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
 
-		static bool success_only = false;
 		ImGui::Columns(3, "mycolumns");
 		float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.7f;
 		ImGui::SetColumnOffset(0, 0);
@@ -115,19 +126,19 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::TextUnformatted("Created"); ImGui::NextColumn();
 		ImGui::TextUnformatted(""); ImGui::NextColumn();
 		ImGui::Separator();
-		static bool selected[30] { false };
+		static bool selected[50] { false };
 		for (int i = 0; i < logs.size(); ++i) {
 			const Log& s = logs.at(i);
 			std::string display;
 			if (s.uploaded) {
-				display = s.filename;
+				display = s.boss_name;
 			}
 			else {
 				display = s.filename;
 			}
 
 			ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-			if (s.uploaded) {
+			if (s.success) {
 				col = ImVec4(0.f, 1.f, 0.f, 1.f);
 			}
 			else if (success_only) {
@@ -136,7 +147,13 @@ uintptr_t Uploader::imgui_tick()
 
 			ImGui::PushStyleColor(ImGuiCol_Text, col);
 			ImGui::PushID(s.human_time.c_str());
-			ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
+			if (ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick))
+			{
+				if (ImGui::IsMouseDoubleClicked(0))
+				{
+					ImGui::SetClipboardText(s.permalink.c_str());
+				}
+			}
 			ImGui::PopID();
 			ImGui::PopStyleColor();
 			ImGui::NextColumn();
@@ -159,89 +176,45 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::Columns(1);
 		ImGui::EndChild();
 
-		if (ImGui::Button("Add to Queue")) {
+		if (ImGui::Button("Copy Selected"))
+		{
+			std::string msg;
 			for (int i = 0; i < logs.size(); ++i) {
 				if (selected[i]) {
-					const Log& log = logs.at(i);
-					//Prevent double queueing the same log, inefficient search
-					auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), log);
-					if (result == pending_upload_queue.end()) {
-						pending_upload_queue.push_back(log);
-					}
+					const Log& s = logs.at(i);
+					msg += s.permalink + "\n";
 				}
 			}
-
-			//Clear selected
-			memset(selected, 0, sizeof selected);
+			ImGui::SetClipboardText(msg.c_str());
 		}
-		ImGui::SameLine();
-		if (ImGui::Button("Refresh")) {
-			start_async_refresh_log_list();
-		}
-		ImGui::SameLine();
-		ImGui::Checkbox("Filter Wipes", &success_only);
 
-		if (ImGui::Button("Queue Recent Clears")) {
-			std::chrono::system_clock::time_point now = std::chrono::system_clock::now();
-			std::chrono::system_clock::time_point three_hours_ago = now - std::chrono::hours(3);
+		ImGui::SameLine();
+
+		if (ImGui::Button("Copy & Format Recent Clears"))
+		{
+			std::time_t now = std::time(nullptr);
+			std::tm* local = std::localtime(&now);
+			char buf[64];
+			strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+
+			std::string msg(buf);
+
+			std::chrono::system_clock::time_point current = std::chrono::system_clock::now();
+			std::chrono::system_clock::time_point past = current - std::chrono::minutes(150);
 			for (int i = 0; i < logs.size(); ++i) {
 				const Log& s = logs.at(i);
-				if (s.uploaded) {
-					if (s.time > three_hours_ago) {
-						//Prevent double queueing the same log, inefficient search
-						auto result = std::find(pending_upload_queue.begin(), pending_upload_queue.end(), s);
-						if (result == pending_upload_queue.end()) {
-							pending_upload_queue.push_back(s);
-						}
+				if (s.uploaded && s.success) {
+					if (s.time > past) {
+						msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
 					}
 				}
 			}
+			ImGui::SetClipboardText(msg.c_str());
 		}
 
 		ImGui::Spacing();
 		ImGui::Spacing();
 
-		ImGui::TextUnformatted("Queue");
-		ImGui::BeginChild("Upload Queue", ImVec2(450, 100), true);
-
-		for (auto& l : pending_upload_queue) {
-			std::string display;
-			if (l.uploaded) {
-				display = l.filename;
-			}
-			else {
-				display = l.filename;
-			}
-			ImGui::Text("%s - %s", display.c_str(), l.human_time.c_str());
-		}
-
-		ImGui::EndChild();
-
-		if (ImGui::Button("Clear Queue")) {
-			pending_upload_queue.clear();
-		}
-
-		static int item = 0;
-		//TODO: Remove these since dps.report doesn't support cats or tags.
-		static const char *items[] = { "None", "Guild / Static", "Training", "PUG", "Low Man / Sells" };
-		static char tags[64];
-
-		bool upload_started = false;
-		if (ImGui::Button("Upload to dps.report")) {
-				add_pending_upload_logs(pending_upload_queue);
-				pending_upload_queue.clear();
-		}
-		else {
-			upload_started = true;
-		}
-
-		if (upload_started) {
-			if (!upload_queue.empty()) {
-				ut_cv.notify_one();
-			}
-		}
-
-		ImGui::Spacing();
 		ImGui::Separator();
 		ImGui::TextUnformatted("Status");
 		ImGui::BeginChild("Status Messages", ImVec2(450, 150), true);
@@ -272,27 +245,6 @@ uintptr_t Uploader::imgui_tick()
 
 		ImGui::EndChild();
 
-		if (ImGui::Button("Copy & Format Recent")) {
-			std::time_t now = std::time(nullptr);
-			std::tm* local = std::localtime(&now);
-			char buf[64];
-			strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
-
-			std::string msg(buf);
-
-			for (const auto& status : status_messages) {
-				if (status.url.size() != 0) {
-					uint32_t minutes = (uint32_t) status.duration / 60;
-					uint32_t secs = status.duration % 60;
-					char t[64];
-					sprintf_s(t, "%02d:%02d", minutes, secs);
-					std::string time(t);
-					msg += status.encounter + " - " + time + "\n*" + status.url + "*\n\n";
-				}
-			}
-			ImGui::SetClipboardText(msg.c_str());
-		}
-
 		ImGui::PopStyleColor();
 		ImGui::PopStyleColor();
 		ImGui::PopStyleColor();
@@ -302,6 +254,12 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::End();
 
 		ImGui::PopStyleVar();
+
+		// Upload Thread
+		if (!upload_queue.empty())
+		{
+			ut_cv.notify_one();
+		}
 
 		// Pick up any messages from our upload thread
 		{
@@ -412,7 +370,6 @@ void Uploader::start_async_refresh_log_list() {
 		std::vector<Log> file_list;
 		auto filenames = storage->select(&Log::filename);
 		std::set<std::string> filename_set(filenames.begin(), filenames.end());
-		std::vector<Log> queue;
 
 		storage->begin_transaction();
 		for (auto& p : fs::recursive_directory_iterator(path)) {
@@ -445,13 +402,16 @@ void Uploader::start_async_refresh_log_list() {
 					log.human_time = std::string(timestr);
 
 					log.uploaded = false;
+					log.error = false;
+					log.report_id = "";
+					log.permalink = "";
 					log.boss_id = 0;
+					log.json_available = false;
 					log.success = false;
 
 					try
 					{
 						log.id = storage->insert(log);
-						queue.push_back(log);
 					}
 					catch (std::system_error e)
 					{
@@ -465,11 +425,19 @@ void Uploader::start_async_refresh_log_list() {
 			}
 		}
 		storage->commit();
-		add_pending_upload_logs(queue);
 
 		file_list = storage->get_all<Log>(order_by(&Log::time).desc(), limit(50));
+
+		std::vector<int> queue;
+		for (auto& log : file_list)
+		{
+			if (!log.uploaded) queue.push_back(log.id);
+		}
+		add_pending_upload_logs(queue);
+
 		return file_list;
 	}, log_path);
+	refresh_time = std::chrono::system_clock::now();
 }
 
 void Uploader::parse_async_log(Log& aLog) {
@@ -536,6 +504,13 @@ void Uploader::poll_async_refresh_log_list() {
 			logs = ft_file_list.get();
 		}
 	}
+
+	auto now = std::chrono::system_clock::now();
+	auto diff = now - refresh_time;
+	if (diff > std::chrono::minutes(5)) {
+		start_async_refresh_log_list();
+		refresh_time = now;
+	}
 }
 
 void Uploader::start_upload_thread()
@@ -545,12 +520,15 @@ void Uploader::start_upload_thread()
 	upload_thread = std::thread(&Uploader::upload_thread_loop, this);
 }
 
-void Uploader::add_pending_upload_logs(std::vector<Log>& queue) {
+void Uploader::add_pending_upload_logs(std::vector<int>& queue) {
+	if (queue.empty()) return;
 	{
 		std::lock_guard<std::mutex> lk(ut_mutex);
-		std::reverse(queue.begin(), queue.end());
-		for (Log& log : queue) {
-			upload_queue.push(log);
+		for (int log_id : queue) {
+			if (std::find(upload_queue.begin(), upload_queue.end(), log_id) == upload_queue.end())
+			{
+				upload_queue.push_back(log_id);
+			}
 		}
 	}
 	ut_cv.notify_one();
@@ -562,10 +540,10 @@ void Uploader::upload_thread_loop() {
 		ut_cv.wait(lk);
 
 		bool process_log = false;
-		Log log;
+		int log_id;
 		if (!upload_queue.empty()) {
-			log = upload_queue.front();
-			upload_queue.pop();
+			log_id = upload_queue.front();
+			upload_queue.pop_front();
 			process_log = true;
 		}
 
@@ -573,10 +551,13 @@ void Uploader::upload_thread_loop() {
 
 		if (process_log) {
 			std::string display;
-			display = log.filename;
+			auto log = storage->get_pointer<Log>(log_id);
+			if (!log) continue;
+
+			display = log->filename;
 
 			StatusMessage start;
-			start.msg = "Uploading " + display + " - " + log.human_time + ".";
+			start.msg = "Uploading " + display + " - " + log->human_time + ".";
 			{
 				std::lock_guard<std::mutex> lk(ts_msg_mutex);
 				thread_status_messages.push_back(start);
@@ -585,22 +566,27 @@ void Uploader::upload_thread_loop() {
 			cpr::Response response;
 			response = cpr::Post(
 				cpr::Url{"https://dps.report/uploadContent"},
-				cpr::Multipart{ {"file", cpr::File{log.path.string()}}, {"json", "1"} }
+				cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
+				//cpr::Header{{"accept-encoding", "gzip, deflate"}}
 			);
 
 			StatusMessage status;
 			if (response.status_code == 200) {
 				json parsed = json::parse(response.text);
-				status.msg = "Uploaded " + display + " - " + log.human_time + ".";
+				LOG_F(INFO, "JSON: %s", response.text.c_str());
+				
+				log->uploaded = true;
+				log->report_id = parsed["id"].get<std::string>();
+				log->permalink = parsed["permalink"].get<std::string>();
+				json encounter = parsed["encounter"];
+				log->boss_id = encounter["bossId"].get<int>();
+				log->boss_name = encounter["boss"].get<std::string>();
+				log->json_available = encounter["jsonAvailable"].get<bool>();
+				log->success = encounter["success"].get<bool>();
+				
+				status.msg = "Uploaded " + display + " - " + log->human_time + ".";
 				status.url = parsed.value("permalink", "");
-				if (log.uploaded) {
-					status.encounter = log.filename;//log.parsed.encounter_name;
-					status.duration = 0;//log.parsed.encounter_duration;
-				}
-				else {
-					status.encounter = log.filename;
-					status.duration = 0;//log.parsed.encounter_duration;
-				}
+				status.encounter = log->boss_id;
 			}
 			else if (response.status_code == 401) {
 				status.msg = "Upload failed. Invalid Username/Password. Please login again.";
@@ -610,6 +596,17 @@ void Uploader::upload_thread_loop() {
 			}
 			else {
 				status.msg = "Unknown response.\n" + response.text;
+				log->uploaded = true;
+				log->error = true;
+			}
+
+			try
+			{
+				storage->update(*log);
+			}
+			catch (std::system_error e)
+			{
+				LOG_F(ERROR, "Failed to update log: %s", e.what());
 			}
 
 			{

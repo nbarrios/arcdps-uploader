@@ -5,7 +5,7 @@
 #include <cpr/cpr.h>
 #include <filesystem>
 #include <future>
-#include <queue>
+#include <deque>
 #include "Revtc.h"
 #include "sqlite_orm.h"
 #include "Log.h"
@@ -28,9 +28,9 @@ class Uploader
 	fs::path log_path;
 	std::vector<Log> logs;
 	std::future<decltype(logs)> ft_file_list;
+	std::chrono::system_clock::time_point refresh_time;
 
-	std::vector<Log> pending_upload_queue;
-	std::queue<Log> upload_queue;
+	std::deque<int> upload_queue;
 	std::vector<std::future<cpr::Response>> ft_uploads;
 
 	std::future<cpr::Response> ft_auth_response;
@@ -46,6 +46,8 @@ class Uploader
 	std::condition_variable ut_cv;
 
 	void upload_thread_loop();
+	void add_pending_upload_logs(std::vector<int>& queue);
+	void poll_async_refresh_log_list();
 public:
 	bool is_open;
 
@@ -57,9 +59,7 @@ public:
 
 	void start_async_refresh_log_list();
 	void parse_async_log(Log& aLog);
-	void poll_async_refresh_log_list();
 
 	void start_upload_thread();
-	void add_pending_upload_logs(std::vector<Log>& queue);
 };
 

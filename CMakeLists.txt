@@ -1,6 +1,8 @@
 cmake_minimum_required(VERSION 3.8.0)
 
-project(arcdps_uploader LANGUAGES CXX)
+project(arcdps_uploader LANGUAGES CXX C)
+
+find_package(CURL CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -81,21 +83,21 @@ target_compile_definitions(uploader_standalone PRIVATE
 target_compile_options(uploader_standalone PUBLIC "/Zc:__cplusplus")
 set_property(TARGET uploader_standalone PROPERTY VS_DEBUGGER_WORKING_DIRECTORY ${GW2_DIR})
 
-set(BUILD_CURL_EXE OFF CACHE BOOL "disable curl exe")
-set(BUILD_SHARED_LIBS OFF CACHE BOOL "build static libs")
-set(BUILD_TESTING OFF CACHE BOOL "disable testing tree")
-set(HTTP_ONLY ON CACHE BOOL "http only")
-set(CURL_ZLIB OFF CACHE BOOL "no zlib")
-set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "no libssh2" FORCE)
-set(CMAKE_USE_WINSSL ON CACHE BOOL "use winssl")
-add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
+#set(BUILD_CURL_EXE OFF CACHE BOOL "disable curl exe")
+#set(BUILD_SHARED_LIBS OFF CACHE BOOL "build static libs")
+#set(BUILD_TESTING OFF CACHE BOOL "disable testing tree")
+#set(HTTP_ONLY ON CACHE BOOL "http only")
+#set(CURL_ZLIB ON CACHE BOOL "no zlib")
+#set(CMAKE_USE_LIBSSH2 OFF CACHE BOOL "no libssh2" FORCE)
+#set(CMAKE_USE_WINSSL ON CACHE BOOL "use winssl")
+#add_subdirectory(${CMAKE_SOURCE_DIR}/curl)
 
 target_link_libraries(d3d9_uploader PUBLIC
-    libcurl
+    CURL::libcurl
 )
 
 target_link_libraries(uploader_standalone PUBLIC
-    libcurl
+    CURL::libcurl
     D3d9
 )
 

@@ -109,6 +109,7 @@ int main(int, char**)
         ImGui_ImplDX9_NewFrame();
 
         mod_imgui();
+        ImGui::ShowTestWindow();
 
         // Rendering
         g_pd3dDevice->SetRenderState(D3DRS_ZENABLE, false);

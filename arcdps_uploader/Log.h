@@ -15,9 +15,12 @@ struct Log {
 	std::string human_time;
 	std::chrono::system_clock::time_point time;
 	bool uploaded;
+	bool error;
 	std::string report_id;
 	std::string permalink;
 	int boss_id;
+	std::string boss_name;
+	bool json_available;
 	bool success;
 
 	inline bool operator==(const Log&rhs) {
