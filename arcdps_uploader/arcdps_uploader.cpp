@@ -75,7 +75,7 @@ arcdps_exports* mod_init() {
 	exports.out_name = "uploader";
 	exports.out_build = "0.9.0";
 	exports.sig = 0x92485179;
-	exports.wnd = mod_wnd;
+	exports.wnd_nofilter = mod_wnd;
 	exports.combat = mod_combat;
 	exports.imgui = mod_imgui;
 	return &exports;
@@ -122,9 +122,22 @@ uintptr_t mod_wnd(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 }
 
 /* combat callback -- may be called asynchronously. return ignored */
-/* one participant will be party/squad, or minion of. no spawn statechange events. despawn statechange only on marked boss npcs */
-uintptr_t mod_combat(cbtevent* ev, ag* src, ag* dst, char* skillname)
+/* one participant will be party/squad, or minijpon of. no spawn statechange events. despawn statechange only on marked boss npcs */
+uintptr_t mod_combat(cbtevent* ev, ag* src, ag* dst, char* skillname, uint64_t id, uint64_t revision)
 {
+	if (ev)
+	{
+		if (src && src->self)
+		{
+			if (ev->is_statechange == CBTS_ENTERCOMBAT) {
+				up->in_combat = true;
+			}
+			else if (ev->is_statechange == CBTS_EXITCOMBAT)
+			{
+				up->in_combat = false;
+			}
+		}
+	}
 	return uintptr_t();
 }
 

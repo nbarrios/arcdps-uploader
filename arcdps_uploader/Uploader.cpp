@@ -35,6 +35,7 @@ static std::unique_ptr<Storage> storage;
 
 Uploader::Uploader(fs::path data_path)
 	: is_open(false)
+	, in_combat(false)
 	, ini_enabled(true)
 {
 	//INI
@@ -85,7 +86,6 @@ uintptr_t Uploader::imgui_tick()
 #else
 	if (is_open) {
 #endif
-		poll_async_refresh_log_list();
 
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildWindowRounding, 5.0f);
 
@@ -126,7 +126,7 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::TextUnformatted("Created"); ImGui::NextColumn();
 		ImGui::TextUnformatted(""); ImGui::NextColumn();
 		ImGui::Separator();
-		static bool selected[50] { false };
+		static bool selected[75] { false };
 		for (int i = 0; i < logs.size(); ++i) {
 			const Log& s = logs.at(i);
 			std::string display;
@@ -245,6 +245,11 @@ uintptr_t Uploader::imgui_tick()
 
 		ImGui::EndChild();
 
+		if (in_combat) 
+		{
+			ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f), "In Combat - Uploads Disabled");
+		}
+
 		ImGui::PopStyleColor();
 		ImGui::PopStyleColor();
 		ImGui::PopStyleColor();
@@ -255,11 +260,6 @@ uintptr_t Uploader::imgui_tick()
 
 		ImGui::PopStyleVar();
 
-		// Upload Thread
-		if (!upload_queue.empty())
-		{
-			ut_cv.notify_one();
-		}
 
 		// Pick up any messages from our upload thread
 		{
@@ -268,6 +268,17 @@ uintptr_t Uploader::imgui_tick()
 			thread_status_messages.clear();
 		}
 	}
+
+	if (!in_combat)
+	{
+		poll_async_refresh_log_list();
+		// Upload Thread
+		if (!upload_queue.empty())
+		{
+			ut_cv.notify_one();
+		}
+	}
+
 	return uintptr_t();
 }
 
@@ -426,7 +437,7 @@ void Uploader::start_async_refresh_log_list() {
 		}
 		storage->commit();
 
-		file_list = storage->get_all<Log>(order_by(&Log::time).desc(), limit(50));
+		file_list = storage->get_all<Log>(order_by(&Log::time).desc(), limit(75));
 
 		std::vector<int> queue;
 		for (auto& log : file_list)
@@ -573,6 +584,11 @@ void Uploader::upload_thread_loop() {
 			StatusMessage status;
 			if (response.status_code == 200) {
 				json parsed = json::parse(response.text);
+				LOG_F(INFO, "Header:");
+				for (auto& val : response.header)
+				{
+					LOG_F(INFO, "%s : %s", val.first.c_str(), val.second.c_str());
+				}
 				LOG_F(INFO, "JSON: %s", response.text.c_str());
 				
 				log->uploaded = true;

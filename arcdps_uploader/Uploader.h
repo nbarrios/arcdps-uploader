@@ -50,6 +50,7 @@ class Uploader
 	void poll_async_refresh_log_list();
 public:
 	bool is_open;
+	bool in_combat;
 
 	Uploader(fs::path data_path);
 	~Uploader();
