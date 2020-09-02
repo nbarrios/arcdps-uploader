@@ -20,6 +20,7 @@ struct Log {
 	std::string permalink;
 	int boss_id;
 	std::string boss_name;
+	std::string players_json;
 	bool json_available;
 	bool success;
 

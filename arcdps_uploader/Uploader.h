@@ -12,11 +12,27 @@
 
 namespace fs = std::filesystem;
 
-struct StatusMessage {
+struct StatusMessage
+{
 	std::string msg;
+	int log_id;
+};
+
+struct Webhook
+{
+	int id;
+	std::string name;
 	std::string url;
-	std::string encounter;
-	uint64_t duration;
+	bool raids;
+	bool fractals;
+	bool strikes;
+	bool golems;
+	bool wvw;
+	std::string filter;
+
+	char name_buf[64];
+	char url_buf[192];
+	char filter_buf[128];
 };
 
 class Uploader
@@ -33,8 +49,7 @@ class Uploader
 	std::deque<int> upload_queue;
 	std::vector<std::future<cpr::Response>> ft_uploads;
 
-	std::future<cpr::Response> ft_auth_response;
-	cpr::Response auth_response;
+	std::vector<Webhook> webhooks;
 
 	std::vector<StatusMessage> status_messages;
 	std::mutex ts_msg_mutex;
@@ -57,6 +72,8 @@ public:
 
 	uintptr_t imgui_tick();
 	void create_log_table(const Log& l);
+	
+	void check_webhooks();
 
 	void start_async_refresh_log_list();
 	void parse_async_log(Log& aLog);

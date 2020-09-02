@@ -26,9 +26,22 @@ inline auto initStorage(const std::string& path)
 								   make_column("permalink", &Log::permalink),
 								   make_column("boss_id", &Log::boss_id),
 								   make_column("boss_name", &Log::boss_name),
+								   make_column("players_json", &Log::players_json),
 								   make_column("json_available", &Log::json_available),
 								   make_column("success", &Log::success)
-						));
+						),
+						make_table("webhooks",
+								   make_column("id", &Webhook::id, autoincrement(), primary_key()),
+								   make_column("name", &Webhook::name),
+								   make_column("url", &Webhook::url),
+								   make_column("raids", &Webhook::raids),
+								   make_column("fractals", &Webhook::fractals),
+								   make_column("strikes", &Webhook::strikes),
+								   make_column("golems", &Webhook::golems),
+								   make_column("wvw", &Webhook::wvw),
+								   make_column("filter", &Webhook::filter)
+						)
+		);
 }
 using Storage = decltype(initStorage(""));
 static std::unique_ptr<Storage> storage;
@@ -48,9 +61,22 @@ Uploader::Uploader(fs::path data_path)
 
 	//Sqlite Database
 	fs::path db_path = data_path / "uploader.db";
+	LOG_F(INFO, "DB Path: %s", db_path.string().c_str());
 	storage = std::make_unique<Storage>(initStorage(db_path.string()));
-	storage->open_forever();
 	storage->sync_schema(true);
+	storage->open_forever();
+	
+	//Webhooks
+	webhooks = storage->get_all<Webhook>();
+	for (auto& wh : webhooks)
+	{
+		memset(wh.name_buf, 0, 64);
+		memcpy(wh.name_buf, wh.name.c_str(), wh.name.size());
+		memset(wh.url_buf, 0, 192);
+		memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
+		memset(wh.filter_buf, 0, 128);
+		memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
+	}
 
 	/* my documents */
 	WCHAR my_documents[MAX_PATH];
@@ -61,7 +87,7 @@ Uploader::Uploader(fs::path data_path)
 		WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
 		std::string mydocs = std::string(utf_path);
 		fs::path mydocs_path = fs::path(mydocs);
-		log_path = mydocs_path / "Guild Wars 2/addons/arcdps/arcdps.cbtlogs/";
+		log_path = mydocs_path / "Guild Wars 2\\addons\\arcdps\\arcdps.cbtlogs\\";
 	}
 }
 
@@ -108,7 +134,7 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::TextUnformatted("Recent Logs");
 		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 170.f);
 		ImGui::Checkbox("Filter Wipes", &success_only);
-		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 53.f);
+		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 54.f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 3.f));
 		if (ImGui::Button("Refresh")) {
 			start_async_refresh_log_list();
@@ -118,9 +144,9 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
 
 		ImGui::Columns(3, "mycolumns");
-		float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.7f;
+		float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.9f;
 		ImGui::SetColumnOffset(0, 0);
-		ImGui::SetColumnOffset(1, last_col - ImGui::CalcTextSize("00:00PM (Mon Jan 00)").x * 1.15f);
+		ImGui::SetColumnOffset(1, last_col - ImGui::CalcTextSize("00:00PM (Mon Jan 00)").x * 1.1f);
 		ImGui::SetColumnOffset(2, last_col);
 		ImGui::TextUnformatted("Name"); ImGui::NextColumn();
 		ImGui::TextUnformatted("Created"); ImGui::NextColumn();
@@ -147,13 +173,7 @@ uintptr_t Uploader::imgui_tick()
 
 			ImGui::PushStyleColor(ImGuiCol_Text, col);
 			ImGui::PushID(s.human_time.c_str());
-			if (ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick))
-			{
-				if (ImGui::IsMouseDoubleClicked(0))
-				{
-					ImGui::SetClipboardText(s.permalink.c_str());
-				}
-			}
+			ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
 			ImGui::PopID();
 			ImGui::PopStyleColor();
 			ImGui::NextColumn();
@@ -221,19 +241,21 @@ uintptr_t Uploader::imgui_tick()
 
 		for (const auto& status : status_messages) {
 			ImGui::Text(status.msg.c_str());
-			if (status.url.size() != 0) {
-				if (status.url.size() > 8) {
-					ImGui::Text("%s", status.url.substr(8,  status.url.size()).c_str());
+			if (status.log_id > 0) {
+				auto log = storage->get_pointer<Log>(status.log_id);
+				if (log->permalink.size() > 8) {
+					ImGui::Text("%s", log->permalink.substr(8,  log->permalink.size()).c_str());
 				}
 				else {
-					ImGui::Text("%s", status.url.c_str());
+					ImGui::Text("%s", log->permalink.c_str());
 				}
 				ImGui::SameLine();
-				ImGui::PushID(std::string("Url" + status.url).c_str());
+				ImGui::PushID(std::string("Url" + log->permalink).c_str());
 				if (ImGui::SmallButton("Copy")) {
-					ImGui::SetClipboardText(status.url.c_str());
+					ImGui::SetClipboardText(log->permalink.c_str());
 				}
 				ImGui::PopID();
+				start_async_refresh_log_list();
 			}
 		}
 		static uint8_t status_message_count = 0;
@@ -244,6 +266,137 @@ uintptr_t Uploader::imgui_tick()
 		status_message_count = (uint8_t) status_messages.size();
 
 		ImGui::EndChild();
+
+		if (ImGui::CollapsingHeader("Options"))
+		{
+			if (ImGui::TreeNode("Webhooks (Discord)"))
+			{
+				for (auto& wh : webhooks)
+				{
+					ImGui::BeginChild(wh.name.c_str(), ImVec2(ImGui::GetContentRegionAvailWidth(), 123), true);
+					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
+					ImGui::InputText("Name", wh.name_buf, 64);
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("For display purposes only (64 characters max)");
+						ImGui::EndTooltip();
+					}
+					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
+					ImGui::InputText("URL", wh.url_buf, 192);
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("The webhook URL, copy and paste from Discord");
+						ImGui::EndTooltip();
+					}
+					ImGui::Checkbox("Raids", &wh.raids);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for raid logs");
+						ImGui::EndTooltip();
+					}
+					ImGui::SameLine();
+					ImGui::Checkbox("Fractals", &wh.fractals);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for fractal logs");
+						ImGui::EndTooltip();
+					}
+					ImGui::SameLine();
+					ImGui::Checkbox("Strikes", &wh.strikes);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for strike logs");
+						ImGui::EndTooltip();
+					}
+					ImGui::SameLine();
+					ImGui::Checkbox("Golems", &wh.golems);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for golem logs");
+						ImGui::EndTooltip();
+					}
+					ImGui::SameLine();
+					ImGui::Checkbox("WvW", &wh.wvw);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for WvW logs");
+						ImGui::EndTooltip();
+					}
+					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
+					ImGui::InputText("Filter", wh.filter_buf, 128);
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Account Names (account.1234, another.5677, ...)");
+						ImGui::Text("Logs will only be posted if all these accounts are present");
+						ImGui::EndTooltip();
+					}
+					if (ImGui::Button("Save"))
+					{
+						wh.name = wh.name_buf;
+						wh.url = wh.url_buf;
+						wh.filter = wh.filter_buf;
+						storage->update(wh);
+					}
+					ImGui::SameLine();
+					if (ImGui::Button("Delete"))
+					{
+						ImGui::OpenPopup("Delete_Confirm");
+					}
+					if (ImGui::BeginPopup("Delete_Confirm"))
+					{
+						if (ImGui::Button("Confirm"))
+						{
+							storage->remove<Webhook>(wh.id);
+							webhooks = storage->get_all<Webhook>();
+							for (auto& wh : webhooks)
+							{
+								memset(wh.name_buf, 0, 64);
+								memcpy(wh.name_buf, wh.name.c_str(), wh.name.size());
+								memset(wh.url_buf, 0, 192);
+								memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
+								memset(wh.filter_buf, 0, 128);
+								memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
+							}
+						}
+						ImGui::EndPopup();
+					}
+					ImGui::EndChild();
+				}
+				ImGui::Separator();
+				if (ImGui::Button("Add Webhook"))
+				{
+					Webhook nwh = {};
+					nwh.id = -1;
+					nwh.raids = true;
+					nwh.fractals = true;
+					nwh.strikes = true;
+					nwh.golems = true;
+					nwh.wvw = true;
+					storage->insert(nwh);
+					webhooks = storage->get_all<Webhook>();
+					for (auto& wh : webhooks)
+					{
+						memset(wh.name_buf, 0, 64);
+						memcpy(wh.name_buf, wh.name.c_str(), wh.name.size());
+						memset(wh.url_buf, 0, 192);
+						memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
+						memset(wh.filter_buf, 0, 128);
+						memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
+					}
+				}
+			}
+		}
 
 		if (in_combat) 
 		{
@@ -372,6 +525,11 @@ void Uploader::create_log_table(const Log& l) {
 	*/
 }
 
+void Uploader::check_webhooks()
+{
+
+}
+
 void Uploader::start_async_refresh_log_list() {
 	using namespace sqlite_orm;
 	//Early out if we are already waiting on a refresh
@@ -383,9 +541,11 @@ void Uploader::start_async_refresh_log_list() {
 		std::set<std::string> filename_set(filenames.begin(), filenames.end());
 
 		storage->begin_transaction();
-		for (auto& p : fs::recursive_directory_iterator(path)) {
+		for (const auto& p : fs::recursive_directory_iterator(path)) {
 			if (fs::is_regular_file(p.status())) {
+				const auto& extension = p.path().extension();
 				auto& fn = p.path().filename().replace_extension().replace_extension().string();
+				if (extension != "zevtc" || extension != "evtc") continue;
 				if (filename_set.count(fn) == 0) {
 					LOG_F(INFO, "Found new log: %s", p.path().string().c_str());
 					Log log;
@@ -518,7 +678,7 @@ void Uploader::poll_async_refresh_log_list() {
 
 	auto now = std::chrono::system_clock::now();
 	auto diff = now - refresh_time;
-	if (diff > std::chrono::minutes(5)) {
+	if (diff > std::chrono::minutes(2)) {
 		start_async_refresh_log_list();
 		refresh_time = now;
 	}
@@ -582,14 +742,17 @@ void Uploader::upload_thread_loop() {
 			);
 
 			StatusMessage status;
+			status.log_id = -1;
 			if (response.status_code == 200) {
 				json parsed = json::parse(response.text);
+				/*
 				LOG_F(INFO, "Header:");
 				for (auto& val : response.header)
 				{
 					LOG_F(INFO, "%s : %s", val.first.c_str(), val.second.c_str());
 				}
 				LOG_F(INFO, "JSON: %s", response.text.c_str());
+				*/
 				
 				log->uploaded = true;
 				log->report_id = parsed["id"].get<std::string>();
@@ -597,12 +760,12 @@ void Uploader::upload_thread_loop() {
 				json encounter = parsed["encounter"];
 				log->boss_id = encounter["bossId"].get<int>();
 				log->boss_name = encounter["boss"].get<std::string>();
+				log->players_json = parsed["players"].dump();
 				log->json_available = encounter["jsonAvailable"].get<bool>();
 				log->success = encounter["success"].get<bool>();
 				
 				status.msg = "Uploaded " + display + " - " + log->human_time + ".";
-				status.url = parsed.value("permalink", "");
-				status.encounter = log->boss_id;
+				status.log_id = log->id;
 			}
 			else if (response.status_code == 401) {
 				status.msg = "Upload failed. Invalid Username/Password. Please login again.";
@@ -612,6 +775,7 @@ void Uploader::upload_thread_loop() {
 			}
 			else {
 				status.msg = "Unknown response.\n" + response.text;
+				LOG_F(INFO, "Upload failed: %s - %d, %s, %s", log->filename, response.status_code, response.error.message, response.text);
 				log->uploaded = true;
 				log->error = true;
 			}
