@@ -39,7 +39,9 @@ inline auto initStorage(const std::string& path)
 								   make_column("strikes", &Webhook::strikes),
 								   make_column("golems", &Webhook::golems),
 								   make_column("wvw", &Webhook::wvw),
-								   make_column("filter", &Webhook::filter)
+								   make_column("filter", &Webhook::filter),
+								   make_column("filter_min", &Webhook::filter_min),
+								   make_column("success", &Webhook::success)
 						)
 		);
 }
@@ -123,7 +125,6 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.f, 1.f, 0.f, 0.25f));
 		ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.f, 1.f, 0.f, 0.5f));
 		ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.f, 1.f, 0.f, 0.25f));
-
 		ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.f, 1.f, 0.f, 0.5f));
 		ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 1.f, 0.f, 0.25f));
 
@@ -154,7 +155,7 @@ uintptr_t Uploader::imgui_tick()
 		ImGui::Separator();
 		static bool selected[75] { false };
 		for (int i = 0; i < logs.size(); ++i) {
-			const Log& s = logs.at(i);
+			Log& s = logs.at(i);
 			std::string display;
 			if (s.uploaded) {
 				display = s.boss_name;
@@ -255,7 +256,6 @@ uintptr_t Uploader::imgui_tick()
 					ImGui::SetClipboardText(log->permalink.c_str());
 				}
 				ImGui::PopID();
-				start_async_refresh_log_list();
 			}
 		}
 		static uint8_t status_message_count = 0;
@@ -273,7 +273,8 @@ uintptr_t Uploader::imgui_tick()
 			{
 				for (auto& wh : webhooks)
 				{
-					ImGui::BeginChild(wh.name.c_str(), ImVec2(ImGui::GetContentRegionAvailWidth(), 123), true);
+					ImGui::BeginChild(wh.name.c_str(), ImVec2(ImGui::GetContentRegionAvailWidth(), 148), true);
+
 					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
 					ImGui::InputText("Name", wh.name_buf, 64);
 					ImGui::PopItemWidth();
@@ -283,6 +284,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::Text("For display purposes only (64 characters max)");
 						ImGui::EndTooltip();
 					}
+
 					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
 					ImGui::InputText("URL", wh.url_buf, 192);
 					ImGui::PopItemWidth();
@@ -292,6 +294,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::Text("The webhook URL, copy and paste from Discord");
 						ImGui::EndTooltip();
 					}
+
 					ImGui::Checkbox("Raids", &wh.raids);
 					if (ImGui::IsItemHovered())
 					{
@@ -300,6 +303,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::EndTooltip();
 					}
 					ImGui::SameLine();
+
 					ImGui::Checkbox("Fractals", &wh.fractals);
 					if (ImGui::IsItemHovered())
 					{
@@ -308,6 +312,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::EndTooltip();
 					}
 					ImGui::SameLine();
+
 					ImGui::Checkbox("Strikes", &wh.strikes);
 					if (ImGui::IsItemHovered())
 					{
@@ -316,6 +321,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::EndTooltip();
 					}
 					ImGui::SameLine();
+
 					ImGui::Checkbox("Golems", &wh.golems);
 					if (ImGui::IsItemHovered())
 					{
@@ -324,6 +330,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::EndTooltip();
 					}
 					ImGui::SameLine();
+
 					ImGui::Checkbox("WvW", &wh.wvw);
 					if (ImGui::IsItemHovered())
 					{
@@ -331,6 +338,7 @@ uintptr_t Uploader::imgui_tick()
 						ImGui::Text("Use this webhook for WvW logs");
 						ImGui::EndTooltip();
 					}
+
 					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("Filter").x - 1);
 					ImGui::InputText("Filter", wh.filter_buf, 128);
 					ImGui::PopItemWidth();
@@ -338,9 +346,29 @@ uintptr_t Uploader::imgui_tick()
 					{
 						ImGui::BeginTooltip();
 						ImGui::Text("Account Names (account.1234, another.5677, ...)");
-						ImGui::Text("Logs will only be posted if all these accounts are present");
+						ImGui::Text("Logs will only be posted if at least the minimum number of accounts listed here are present");
 						ImGui::EndTooltip();
 					}
+
+					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() * 0.25f);
+					ImGui::InputInt("Min", &wh.filter_min, 1, 2);
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook only if the minimum number of accounts\nfrom the list above are present");
+						ImGui::EndTooltip();
+					}
+					ImGui::SameLine();
+
+					ImGui::Checkbox("Clears Only", &wh.success);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use this webhook for clears/success only");
+						ImGui::EndTooltip();
+					}
+
 					if (ImGui::Button("Save"))
 					{
 						wh.name = wh.name_buf;
@@ -349,6 +377,7 @@ uintptr_t Uploader::imgui_tick()
 						storage->update(wh);
 					}
 					ImGui::SameLine();
+
 					if (ImGui::Button("Delete"))
 					{
 						ImGui::OpenPopup("Delete_Confirm");
@@ -371,6 +400,7 @@ uintptr_t Uploader::imgui_tick()
 						}
 						ImGui::EndPopup();
 					}
+
 					ImGui::EndChild();
 				}
 				ImGui::Separator();
@@ -383,6 +413,8 @@ uintptr_t Uploader::imgui_tick()
 					nwh.strikes = true;
 					nwh.golems = true;
 					nwh.wvw = true;
+					nwh.success = true;
+					nwh.filter_min = 10;
 					storage->insert(nwh);
 					webhooks = storage->get_all<Webhook>();
 					for (auto& wh : webhooks)
@@ -395,6 +427,8 @@ uintptr_t Uploader::imgui_tick()
 						memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
 					}
 				}
+				
+				ImGui::TreePop();
 			}
 		}
 
@@ -413,7 +447,6 @@ uintptr_t Uploader::imgui_tick()
 
 		ImGui::PopStyleVar();
 
-
 		// Pick up any messages from our upload thread
 		{
 			std::lock_guard<std::mutex> lk(ts_msg_mutex);
@@ -425,18 +458,12 @@ uintptr_t Uploader::imgui_tick()
 	if (!in_combat)
 	{
 		poll_async_refresh_log_list();
-		// Upload Thread
-		if (!upload_queue.empty())
-		{
-			ut_cv.notify_one();
-		}
 	}
 
 	return uintptr_t();
 }
 
-void Uploader::create_log_table(const Log& l) {
-	/*
+void Uploader::create_log_table(Log& l) {
 	auto seconds_to_string = [](uint64_t seconds) -> std::string {
 		uint32_t minutes = (uint32_t)seconds / 60;
 		float secondsf = fmodf((float)seconds, 60.f);
@@ -467,67 +494,155 @@ void Uploader::create_log_table(const Log& l) {
 		{"Renegade", ImVec4(148.f/255.f, 49.f/255.f, 38.f/255.f, 1.f)}
 	};
 
-	static ImVec2 size = ImVec2(800, 250);
-	ImGui::Text("%s (%s)", l.parsed.encounter_name.c_str(), seconds_to_string(l.parsed.encounter_duration).c_str());
-	ImGui::Separator();
-	ImGui::Spacing();
-	ImGui::BeginChild("DPS Table", size, false, ImGuiWindowFlags_NoScrollbar);
 
-	ImGui::Columns(10);
-	ImGui::SetColumnOffset(0, 0); //Sub
-	ImGui::SetColumnOffset(1, 15); //Class
-	ImGui::SetColumnOffset(2, 15 + 55); //Name
-	ImGui::SetColumnOffset(3, 15 + 55 + 180); //Account
-	ImGui::SetColumnOffset(4, 15 + 55 + 180 + 180); //Boss DPS
-	ImGui::SetColumnOffset(5, 15 + 55 + 180 + 180 + 85); //DPS
-	ImGui::SetColumnOffset(6, 15 + 55 + 180 + 180 + 85 + 70); //Might
-	ImGui::SetColumnOffset(7, 15 + 55 + 180 + 180 + 85 + 70 + 55); //Fury
-	ImGui::SetColumnOffset(8, 15 + 55 + 180 + 180 + 85 + 70 + 55 + 55); //Quickness
-	ImGui::SetColumnOffset(9, 15 + 55 + 180 + 180 + 85 + 70 + 55 + 55 + 55); //Alacrity
-	ImGui::TextUnformatted(""); ImGui::NextColumn();
-	ImGui::TextUnformatted("Class"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Name"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Account"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Boss DPS"); ImGui::NextColumn();
-	ImGui::TextUnformatted("DPS"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Might"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Fury"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Quick"); ImGui::NextColumn();
-	ImGui::TextUnformatted("Alac"); ImGui::NextColumn();
-	ImGui::Separator();
+	if (l.players)
+	{
+		/*
+		static ImVec2 size = ImVec2(800, 250);
+		ImGui::Text("%s (%s)", l.encounter_name.c_str(), seconds_to_string(l.parsed.encounter_duration).c_str());
+		ImGui::Separator();
+		ImGui::Spacing();
+		ImGui::BeginChild("DPS Table", size, false, ImGuiWindowFlags_NoScrollbar);
 
-	int16_t sub = -1;
-	for (const auto& p : l.parsed.players) {
-		if (p.subgroup != sub) {
-			ImGui::Separator();
-			sub = p.subgroup;
+		ImGui::Columns(10);
+		ImGui::SetColumnOffset(0, 0); //Sub
+		ImGui::SetColumnOffset(1, 15); //Class
+		ImGui::SetColumnOffset(2, 15 + 55); //Name
+		ImGui::SetColumnOffset(3, 15 + 55 + 180); //Account
+		ImGui::SetColumnOffset(4, 15 + 55 + 180 + 180); //Boss DPS
+		ImGui::SetColumnOffset(5, 15 + 55 + 180 + 180 + 85); //DPS
+		ImGui::SetColumnOffset(6, 15 + 55 + 180 + 180 + 85 + 70); //Might
+		ImGui::SetColumnOffset(7, 15 + 55 + 180 + 180 + 85 + 70 + 55); //Fury
+		ImGui::SetColumnOffset(8, 15 + 55 + 180 + 180 + 85 + 70 + 55 + 55); //Quickness
+		ImGui::SetColumnOffset(9, 15 + 55 + 180 + 180 + 85 + 70 + 55 + 55 + 55); //Alacrity
+		ImGui::TextUnformatted(""); ImGui::NextColumn();
+		ImGui::TextUnformatted("Class"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Name"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Account"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Boss DPS"); ImGui::NextColumn();
+		ImGui::TextUnformatted("DPS"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Might"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Fury"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Quick"); ImGui::NextColumn();
+		ImGui::TextUnformatted("Alac"); ImGui::NextColumn();
+		ImGui::Separator();
+
+		int16_t sub = -1;
+		for (const auto& p : l.parsed.players) {
+			if (p.subgroup != sub) {
+				ImGui::Separator();
+				sub = p.subgroup;
+			}
+			ImGui::Text("%u", p.subgroup); ImGui::NextColumn();
+			if (colors.count(p.elite_spec_name)) {
+				ImGui::TextColored(colors.at(p.elite_spec_name), "%s", p.elite_spec_name == "Unknown" ? p.profession_name_short.c_str() : p.elite_spec_name_short.c_str());
+			} else {
+				ImGui::Text("%s", p.elite_spec_name == "Unknown" ? p.profession_name_short.c_str() : p.elite_spec_name_short.c_str()); 
+			}
+			ImGui::NextColumn();
+			ImGui::Text("%s", p.name.c_str()); ImGui::NextColumn();
+			ImGui::Text("%s", p.account.c_str()); ImGui::NextColumn();
+			ImGui::Text("%.2fk", (float)p.boss_dps / 1000.f); ImGui::NextColumn();
+			ImGui::Text("%.2fk", (float)p.dps / 1000.f); ImGui::NextColumn();
+			ImGui::Text("%.1f", p.might_avg); ImGui::NextColumn();
+			ImGui::Text("%.1f%%", p.fury_avg * 100.f); ImGui::NextColumn();
+			ImGui::Text("%.1f%%", p.quickness_avg * 100.f); ImGui::NextColumn();
+			ImGui::Text("%.1f%%", p.alacrity_avg * 100.f); ImGui::NextColumn();
 		}
-		ImGui::Text("%u", p.subgroup); ImGui::NextColumn();
-		if (colors.count(p.elite_spec_name)) {
-			ImGui::TextColored(colors.at(p.elite_spec_name), "%s", p.elite_spec_name == "Unknown" ? p.profession_name_short.c_str() : p.elite_spec_name_short.c_str());
-		} else {
-			ImGui::Text("%s", p.elite_spec_name == "Unknown" ? p.profession_name_short.c_str() : p.elite_spec_name_short.c_str()); 
-		}
-		ImGui::NextColumn();
-		ImGui::Text("%s", p.name.c_str()); ImGui::NextColumn();
-		ImGui::Text("%s", p.account.c_str()); ImGui::NextColumn();
-		ImGui::Text("%.2fk", (float)p.boss_dps / 1000.f); ImGui::NextColumn();
-		ImGui::Text("%.2fk", (float)p.dps / 1000.f); ImGui::NextColumn();
-		ImGui::Text("%.1f", p.might_avg); ImGui::NextColumn();
-		ImGui::Text("%.1f%%", p.fury_avg * 100.f); ImGui::NextColumn();
-		ImGui::Text("%.1f%%", p.quickness_avg * 100.f); ImGui::NextColumn();
-		ImGui::Text("%.1f%%", p.alacrity_avg * 100.f); ImGui::NextColumn();
+
+		size.y = ImGui::GetCursorPosY();
+
+		ImGui::EndChild();
+		*/
 	}
-
-	size.y = ImGui::GetCursorPosY();
-
-	ImGui::EndChild();
-	*/
 }
 
-void Uploader::check_webhooks()
+void Uploader::check_webhooks(int log_id)
 {
+	auto log = storage->get_pointer<Log>(log_id);
+	if (log)
+	{
+		if (!log->players) {
+			try
+			{
+				json players = json::parse(log->players_json);
+				log->players = std::make_optional<json>(players);
+			}
+			catch (json::parse_error& e)
+			{
+				LOG_F(ERROR, "Failed to parse player json for %s: %s", log->filename.c_str(), e.what());
+			}
+		}
 
+		Revtc::BossCategory category = Revtc::Parser::encounterCategory((Revtc::BossID)log->boss_id);
+		for (const auto& wh : webhooks)
+		{
+			bool process = true;
+			if (!log->success && wh.success) process = false;
+			if (category == Revtc::BossCategory::RAIDS && !wh.raids) process = false;
+			if (category == Revtc::BossCategory::FRACTALS && !wh.fractals) process = false;
+			if (category == Revtc::BossCategory::STRIKES && !wh.strikes) process = false;
+			if (category == Revtc::BossCategory::GOLEMS && !wh.golems) process = false;
+			if (category == Revtc::BossCategory::WVW && !wh.wvw) process = false;
+
+			if (wh.filter.size() > 5)
+			{
+				std::vector<std::string> accounts;
+				std::string account;
+				std::istringstream accountStream(wh.filter);
+				while (std::getline(accountStream, account, ','))
+				{
+					if (std::isspace(account.front()))
+					{
+						account = account.substr(1);
+					}
+					if (account.size() > 0 && std::isspace(account.back()))
+					{
+						account.pop_back();
+					}
+					std::transform(account.begin(), account.end(), account.begin(), (int(*)(int)) std::tolower);
+					accounts.push_back(account);
+				}
+
+				if (log->players && log->players->is_object())
+				{
+					const auto& players = *log->players;
+					int found = 0;
+					for (auto it = players.begin(); it != players.end(); ++it)
+					{
+						auto& display_name = it.value().value("display_name", "");
+						std::transform(display_name.begin(), display_name.end(), display_name.begin(), (int(*)(int)) std::tolower);
+						if (std::find(accounts.begin(), accounts.end(), display_name) != accounts.end())
+						{
+							found++;
+						}
+					}
+					int required = min(wh.filter_min, accounts.size());
+					LOG_F(INFO, "Webhook (%s) - %s - Found/Required: %d/%d", wh.name.c_str(), log->boss_name.c_str(),found, required);
+					if (found < required)
+					{
+						process = false;
+					}
+				}
+				else
+				{
+					LOG_F(ERROR, "Players json was not an object.");
+				}
+
+				if (process) {
+					LOG_F(INFO, "Executing webhook \"%s\" for %s (%s)", wh.name.c_str(), log->filename.c_str(), log->boss_name.c_str());
+					std::async(std::launch::async, [](const Webhook& wh, Log log) {
+							cpr::Response response;
+							response = cpr::Post(
+								cpr::Url{wh.url},
+								cpr::Multipart{ {"content", log.boss_name + " - *" + log.human_time + "*" + "\n" + log.permalink} }
+							);
+					}, wh, *log);
+				}
+			}
+
+		}
+	}
 }
 
 void Uploader::start_async_refresh_log_list() {
@@ -545,7 +660,7 @@ void Uploader::start_async_refresh_log_list() {
 			if (fs::is_regular_file(p.status())) {
 				const auto& extension = p.path().extension();
 				auto& fn = p.path().filename().replace_extension().replace_extension().string();
-				if (extension != "zevtc" || extension != "evtc") continue;
+				if (extension != ".zevtc" && extension != ".evtc") continue;
 				if (filename_set.count(fn) == 0) {
 					LOG_F(INFO, "Found new log: %s", p.path().string().c_str());
 					Log log;
@@ -682,6 +797,12 @@ void Uploader::poll_async_refresh_log_list() {
 		start_async_refresh_log_list();
 		refresh_time = now;
 	}
+
+	// Upload Thread
+	if (!upload_queue.empty())
+	{
+		ut_cv.notify_one();
+	}
 }
 
 void Uploader::start_upload_thread()
@@ -745,14 +866,6 @@ void Uploader::upload_thread_loop() {
 			status.log_id = -1;
 			if (response.status_code == 200) {
 				json parsed = json::parse(response.text);
-				/*
-				LOG_F(INFO, "Header:");
-				for (auto& val : response.header)
-				{
-					LOG_F(INFO, "%s : %s", val.first.c_str(), val.second.c_str());
-				}
-				LOG_F(INFO, "JSON: %s", response.text.c_str());
-				*/
 				
 				log->uploaded = true;
 				log->report_id = parsed["id"].get<std::string>();
@@ -763,7 +876,7 @@ void Uploader::upload_thread_loop() {
 				log->players_json = parsed["players"].dump();
 				log->json_available = encounter["jsonAvailable"].get<bool>();
 				log->success = encounter["success"].get<bool>();
-				
+
 				status.msg = "Uploaded " + display + " - " + log->human_time + ".";
 				status.log_id = log->id;
 			}
@@ -783,6 +896,7 @@ void Uploader::upload_thread_loop() {
 			try
 			{
 				storage->update(*log);
+				if (log->uploaded && !log->error) check_webhooks(log->id);
 			}
 			catch (std::system_error e)
 			{

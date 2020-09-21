@@ -6,7 +6,8 @@
 #include <filesystem>
 #include <Revtc.h>
 #include "sqlite_orm.h"
-
+#include <nlohmann/json.hpp>
+#include <optional>
 
 struct Log {
 	int id;
@@ -21,6 +22,7 @@ struct Log {
 	int boss_id;
 	std::string boss_name;
 	std::string players_json;
+	std::optional<nlohmann::json> players;
 	bool json_available;
 	bool success;
 

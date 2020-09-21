@@ -29,6 +29,8 @@ struct Webhook
 	bool golems;
 	bool wvw;
 	std::string filter;
+	int filter_min;
+	bool success;
 
 	char name_buf[64];
 	char url_buf[192];
@@ -50,6 +52,8 @@ class Uploader
 	std::vector<std::future<cpr::Response>> ft_uploads;
 
 	std::vector<Webhook> webhooks;
+	std::mutex wh_mutex;
+	std::deque<int> wh_queue;
 
 	std::vector<StatusMessage> status_messages;
 	std::mutex ts_msg_mutex;
@@ -71,9 +75,9 @@ public:
 	~Uploader();
 
 	uintptr_t imgui_tick();
-	void create_log_table(const Log& l);
+	void create_log_table(Log& l);
 	
-	void check_webhooks();
+	void check_webhooks(int log_id);
 
 	void start_async_refresh_log_list();
 	void parse_async_log(Log& aLog);
