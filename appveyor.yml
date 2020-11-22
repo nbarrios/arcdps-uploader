@@ -32,3 +32,15 @@ after_build:
 artifacts:
   - path: arcdps_uploader_%APPVEYOR_BUILD_VERSION%.zip
     name: ArcdpsUploader
+
+deploy:
+    release: arcdps_uploader_v$(APPVEYOR_BUILD_VERSION)
+    description: "Release"
+    provider: GitHub
+    auth_token:
+        secure: I5j/uafQLh5Nz5MkQcWkgXJ8A7QULV79RhxFDxd95URUPMXxOYsL4jPuWw70BA43
+    artifact: /.*\.zip/
+    draft: true
+    prerelase: false
+    on:
+        branch: master
