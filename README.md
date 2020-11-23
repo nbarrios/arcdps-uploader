@@ -6,6 +6,8 @@ This is an extension for Arcdps that allows you to upload EVTC combat logs *in-g
 ## Usage
 Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releases). Unzip and copy `d3d9_uploader.dll` to same directory as **Arcdps** (usually something like `C:\Program Files\Guild Wars 2\bin64`).
 
+*If the extension fails to load, install the latest x64 ![Visual C++ redistributable](https://support.microsoft.com/en-us/help/2977003/the-latest-supported-visual-c-downloads)*
+
 Use *Alt-Shift-U* to bring the uploader window up.
 
 ## Changelog
