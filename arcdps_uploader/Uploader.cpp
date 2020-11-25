@@ -133,16 +133,16 @@ uintptr_t Uploader::imgui_tick()
 		static ImVec2 log_size(450, 258);
 		ImGui::AlignFirstTextHeightToWidgets();
 		ImGui::TextUnformatted("Recent Logs");
-		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 170.f);
+		ImGui::SameLine(450.f - 170.f);
 		ImGui::Checkbox("Filter Wipes", &success_only);
-		ImGui::SameLine(ImGui::GetContentRegionAvailWidth() - 54.f);
+		ImGui::SameLine(450.f - 54.f);
 		ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 3.f));
 		if (ImGui::Button("Refresh")) {
 			start_async_refresh_log_list();
 		}
 		ImGui::PopStyleVar();
 
-		ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoScrollbar);
+		ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_NoScrollbar);
 
 		ImGui::Columns(3, "mycolumns");
 		float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.9f;
@@ -177,15 +177,30 @@ uintptr_t Uploader::imgui_tick()
 			ImGui::Selectable(display.c_str(), &selected[i], ImGuiSelectableFlags_SpanAllColumns);
 			ImGui::PopID();
 			ImGui::PopStyleColor();
+			ImGui::SetItemAllowOverlap();
 			ImGui::NextColumn();
 			ImGui::Text(s.human_time.c_str());
 			ImGui::NextColumn();
-			ImGui::SmallButton("View");
+			if (s.uploaded) {
+				ImGui::PushID(s.filename.c_str());
+				if (ImGui::SmallButton("View"))
+				{
+					if (!s.permalink.empty()) {
+						int sz = MultiByteToWideChar(CP_UTF8, 0, s.permalink.c_str(), (int)s.permalink.size(), 0, 0);
+						std::wstring wstr(sz, 0);
+						MultiByteToWideChar(CP_UTF8, 0, s.permalink.c_str(), (int)s.permalink.size(), &wstr[0], sz);
+						ShellExecute(0, 0, wstr.c_str(), 0, 0, SW_SHOW);
+					}
+				}
+				ImGui::PopID();
+			}
+			/*
 			if (ImGui::IsItemHovered() && s.uploaded) {
 				ImGui::BeginTooltip();
 				create_log_table(s);
 				ImGui::EndTooltip();
 			}
+			*/
 			ImGui::NextColumn();
 
 			if (logs.size() < 9 && i == logs.size() - 1) {
@@ -194,7 +209,7 @@ uintptr_t Uploader::imgui_tick()
 				log_size.y = ImGui::GetCursorPosY();
 			}
 		}
-		ImGui::Columns(1);
+		ImGui::Columns();
 		ImGui::EndChild();
 
 		if (ImGui::Button("Copy Selected"))
@@ -793,7 +808,7 @@ void Uploader::poll_async_refresh_log_list() {
 
 	auto now = std::chrono::system_clock::now();
 	auto diff = now - refresh_time;
-	if (diff > std::chrono::minutes(2)) {
+	if (diff > std::chrono::minutes(1)) {
 		start_async_refresh_log_list();
 		refresh_time = now;
 	}
