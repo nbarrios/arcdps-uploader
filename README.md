@@ -11,6 +11,11 @@ Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releas
 Use *Alt-Shift-U* to bring the uploader window up.
 
 ## Changelog
+**0.9.3**
+* Use a fixed window size to prevent auto-resize feedback loop (Fixes #7)
+* View button opens logs in default browser (#8)
+* Auto refresh every minute instead of every two minutes
+
 **0.9:**
 - Automatically uploads logs when not in combat
 - Discord Webhook integration
