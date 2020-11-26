@@ -1,7 +1,10 @@
 # Arcdps-Uploader
-This is an extension for Arcdps that allows you to upload EVTC combat logs *in-game*.
+This is an extension for Arcdps that automatically uploads EVTC combat logs *in-game*.
 
 ![Image of the Uploader](https://i.imgur.com/BfcNAR2.png)
+* Easy access to recent logs, one-click to view on dps.reports
+* No network usage while you're in combat
+* Discord Webhook integration
 
 ## Usage
 Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releases). Unzip and copy `d3d9_uploader.dll` to same directory as **Arcdps** (usually something like `C:\Program Files\Guild Wars 2\bin64`).
