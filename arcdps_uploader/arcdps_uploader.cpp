@@ -73,7 +73,7 @@ arcdps_exports* mod_init() {
 	/* for arcdps */
 	exports.size = sizeof(arcdps_exports);
 	exports.out_name = "uploader";
-	exports.out_build = "0.9.3";
+	exports.out_build = "0.9.4";
 	exports.sig = 0x92485179;
 	exports.wnd_nofilter = mod_wnd;
 	exports.combat = mod_combat;

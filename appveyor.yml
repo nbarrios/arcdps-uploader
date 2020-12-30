@@ -1,5 +1,5 @@
-version: '0.9.3.{build}'
-
+version: '0.9.4.{build}'
+skip_non_tags: true
 branches:
   only:
     - master
