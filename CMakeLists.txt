@@ -18,7 +18,6 @@ set(SOURCE
     arcdps_uploader/imgui_demo.cpp
     arcdps_uploader/imgui_draw.cpp
     arcdps_uploader/loguru.cpp
-    arcdps_uploader/miniz.c
     arcdps_uploader/sqlite3.c
     arcdps_uploader/cpr/auth.cpp
     arcdps_uploader/cpr/cookies.cpp
@@ -45,7 +44,6 @@ set(HEADERS
     arcdps_uploader/imgui.h
     arcdps_uploader/imgui_internal.h
     arcdps_uploader/imconfig.h
-    arcdps_uploader/miniz.h
 )
 
 add_library(d3d9_uploader SHARED
