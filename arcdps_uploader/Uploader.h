@@ -80,7 +80,6 @@ public:
 	void check_webhooks(int log_id);
 
 	void start_async_refresh_log_list();
-	void parse_async_log(Log& aLog);
 
 	void start_upload_thread();
 };

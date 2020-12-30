@@ -3,9 +3,6 @@
 #include <nlohmann/json.hpp>
 #include <ShlObj.h>
 #include <thread>
-#define MINIZ_NO_ARCHIVE_WRITING_APIS
-#define MINIZ_NO_ZLIB_APIS
-#include "miniz.h"
 #include "loguru.hpp"
 
 using json = nlohmann::json;
@@ -739,64 +736,6 @@ void Uploader::start_async_refresh_log_list() {
 		return file_list;
 	}, log_path);
 	refresh_time = std::chrono::system_clock::now();
-}
-
-void Uploader::parse_async_log(Log& aLog) {
-	size_t log_file_size;
-	FILE *log = fopen(aLog.path.string().c_str(), "rb");
-	if (!log) {
-		return;
-	}
-
-	if (fseek(log, 0, SEEK_END)) {
-		return;
-	}
-	log_file_size = ftell(log);
-	rewind(log);
-
-	unsigned char * log_data = nullptr;
-	fs::path path = fs::path(aLog.path);
-	//Attempt to extract. We assume that the zip extension is accurate and the archive contains an evtc file as its only entry
-	if (path.extension().string() == ".zip" || path.extension().string() == ".zevtc") {
-		mz_bool status;
-		mz_zip_archive zip_archive;
-		mz_zip_zero_struct(&zip_archive);
-
-		status = mz_zip_reader_init_cfile(&zip_archive, log, log_file_size, 0);
-		if (!status) {
-			const char *error = mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive));
-			return;
-		}
-
-		log_data = (unsigned char *)mz_zip_reader_extract_to_heap(&zip_archive, 0, &log_file_size, 0);
-		if (!log_data) {
-			const char *error = mz_zip_get_error_string(mz_zip_get_last_error(&zip_archive));
-			return;
-		}
-	}
-	else { // Not a zip file, read directly to memory
-		log_data = (unsigned char *)malloc(log_file_size);
-		if (log_data == nullptr) return;
-		size_t ret = fread(log_data, sizeof(*log_data), log_file_size, log);
-		if (ret != log_file_size) {
-			return;
-		}
-		else {
-			if (feof(log))
-				return;
-			else if (ferror(log))
-				return;
-		}
-	}
-	fclose(log);
-
-	if (log_data && log_file_size) {
-		Revtc::Parser *parser = new Revtc::Parser(log_data, log_file_size);
-		Revtc::Log log = parser->parse();
-		//aLog.parsed = log;
-		delete parser;
-	}
-	free(log_data);
 }
 
 void Uploader::poll_async_refresh_log_list() {
