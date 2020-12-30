@@ -86,12 +86,27 @@ Uploader::Uploader(fs::path data_path)
 		WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
 		std::string mydocs = std::string(utf_path);
 		fs::path mydocs_path = fs::path(mydocs);
+		LOG_F(INFO, "Documents Path: %s", mydocs_path.string().c_str());
 		log_path = mydocs_path / "Guild Wars 2\\addons\\arcdps\\arcdps.cbtlogs\\";
+		LOG_F(INFO, "Logs Path: %s", log_path.string().c_str());
+		if (!std::filesystem::exists(log_path))
+		{
+			{
+				StatusMessage msg;
+				msg.msg = "Log path not found. Is Arcdps logging enabled?";
+				std::lock_guard<std::mutex> lk(ts_msg_mutex);
+				thread_status_messages.push_back(msg);
+			}
+		}
+	}
+	else {
+		LOG_F(ERROR, "Failed to find Documents paths. Fatal.");
 	}
 }
 
 Uploader::~Uploader()
 {
+	LOG_F(INFO, "Uploader destructor begin...");
 	// Save our settings if we previously loaded/created an ini file
 	if (ini_enabled) {
 		ini.SaveFile(ini_path.string().c_str());
@@ -111,7 +126,6 @@ uintptr_t Uploader::imgui_tick()
 #else
 	if (is_open) {
 #endif
-
 		ImGui::PushStyleVar(ImGuiStyleVar_ChildWindowRounding, 5.0f);
 
 		if (!ImGui::Begin("Uploader", &is_open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
@@ -191,13 +205,11 @@ uintptr_t Uploader::imgui_tick()
 				}
 				ImGui::PopID();
 			}
-			/*
-			if (ImGui::IsItemHovered() && s.uploaded) {
-				ImGui::BeginTooltip();
-				create_log_table(s);
-				ImGui::EndTooltip();
-			}
-			*/
+			//if (ImGui::IsItemHovered() && s.uploaded) {
+			//	ImGui::BeginTooltip();
+			//	create_log_table(s);
+			//	ImGui::EndTooltip();
+			//}
 			ImGui::NextColumn();
 
 			if (logs.size() < 9 && i == logs.size() - 1) {
@@ -417,6 +429,7 @@ uintptr_t Uploader::imgui_tick()
 
 					ImGui::EndChild();
 				}
+
 				ImGui::Separator();
 				if (ImGui::Button("Add Webhook"))
 				{
@@ -660,9 +673,11 @@ void Uploader::check_webhooks(int log_id)
 }
 
 void Uploader::start_async_refresh_log_list() {
+	LOG_F(INFO, "Starting Async Log Refresh");
 	using namespace sqlite_orm;
 	//Early out if we are already waiting on a refresh
 	if (ft_file_list.valid()) return;
+	if (!std::filesystem::exists(log_path)) return;
 
 	ft_file_list = std::async(std::launch::async, [&](fs::path path) {
 		std::vector<Log> file_list;
@@ -763,6 +778,7 @@ void Uploader::poll_async_refresh_log_list() {
 
 void Uploader::start_upload_thread()
 {
+	LOG_F(INFO, "Starting Upload Thread");
 	// Create a thread that spins, waiting for uploads to process
 	upload_thread_run = true;
 	upload_thread = std::thread(&Uploader::upload_thread_loop, this);

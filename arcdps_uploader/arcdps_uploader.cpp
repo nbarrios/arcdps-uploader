@@ -10,7 +10,7 @@
 #include <iomanip>
 #include "loguru.hpp"
 
-char* arcvers;
+static char* arcvers;
 static arcdps_exports exports;
 static Uploader* up;
 
@@ -84,7 +84,7 @@ arcdps_exports* mod_init() {
 /* release mod -- return ignored */
 uintptr_t mod_release() {
 	delete up;
-	return uintptr_t();
+	return 0;
 }
 
 /* window callback -- return is assigned to umsg (return zero to not be processed by arcdps or game) */
@@ -116,6 +116,7 @@ uintptr_t mod_wnd(HWND hWnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
 
 	if (KeyAlt && KeyShift && KeyU) {
 		up->is_open = !up->is_open;
+		LOG_F(INFO, "Window Toggle: %i", up->is_open);
 	}
 
 	return uMsg;
