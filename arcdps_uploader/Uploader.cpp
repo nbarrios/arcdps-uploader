@@ -256,18 +256,20 @@ uintptr_t Uploader::imgui_tick()
 			ImGui::Text(status.msg.c_str());
 			if (status.log_id > 0) {
 				auto log = storage->get_pointer<Log>(status.log_id);
-				if (log->permalink.size() > 8) {
-					ImGui::Text("%s", log->permalink.substr(8,  log->permalink.size()).c_str());
+				if (log) {
+					if (log->permalink.size() > 8) {
+						ImGui::Text("%s", log->permalink.substr(8,  log->permalink.size()).c_str());
+					}
+					else {
+						ImGui::Text("%s", log->permalink.c_str());
+					}
+					ImGui::SameLine();
+					ImGui::PushID(std::string("Url" + log->permalink).c_str());
+					if (ImGui::SmallButton("Copy")) {
+						ImGui::SetClipboardText(log->permalink.c_str());
+					}
+					ImGui::PopID();
 				}
-				else {
-					ImGui::Text("%s", log->permalink.c_str());
-				}
-				ImGui::SameLine();
-				ImGui::PushID(std::string("Url" + log->permalink).c_str());
-				if (ImGui::SmallButton("Copy")) {
-					ImGui::SetClipboardText(log->permalink.c_str());
-				}
-				ImGui::PopID();
 			}
 		}
 		static uint8_t status_message_count = 0;
