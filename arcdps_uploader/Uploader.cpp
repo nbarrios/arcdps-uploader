@@ -126,7 +126,7 @@ uintptr_t Uploader::imgui_tick()
 #else
 	if (is_open) {
 #endif
-		ImGui::PushStyleVar(ImGuiStyleVar_ChildWindowRounding, 5.0f);
+		ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 5.0f);
 
 		if (!ImGui::Begin("Uploader", &is_open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoCollapse)) {
 			ImGui::End();
@@ -142,7 +142,7 @@ uintptr_t Uploader::imgui_tick()
 		static bool success_only = false;
 
 		static ImVec2 log_size(450, 258);
-		ImGui::AlignFirstTextHeightToWidgets();
+		ImGui::AlignTextToFramePadding();
 		ImGui::TextUnformatted("Recent Logs");
 		ImGui::SameLine(450.f - 170.f);
 		ImGui::Checkbox("Filter Wipes", &success_only);
@@ -287,7 +287,7 @@ uintptr_t Uploader::imgui_tick()
 		static uint8_t status_message_count = 0;
 		if (status_messages.size() > status_message_count)
 		{
-			ImGui::SetScrollPosHere();
+			ImGui::SetScrollHereY();
 		}
 		status_message_count = (uint8_t) status_messages.size();
 

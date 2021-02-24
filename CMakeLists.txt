@@ -17,6 +17,8 @@ set(SOURCE
     arcdps_uploader/imgui.cpp
     arcdps_uploader/imgui_demo.cpp
     arcdps_uploader/imgui_draw.cpp
+    arcdps_uploader/imgui_tables.cpp
+    arcdps_uploader/imgui_widgets.cpp
     arcdps_uploader/loguru.cpp
     arcdps_uploader/sqlite3.c
     arcdps_uploader/cpr/auth.cpp
@@ -44,6 +46,9 @@ set(HEADERS
     arcdps_uploader/imgui.h
     arcdps_uploader/imgui_internal.h
     arcdps_uploader/imconfig.h
+    arcdps_uploader/imstb_rectpack.h
+    arcdps_uploader/imstb_textedit.h
+    arcdps_uploader/imstb_truetype.h
 )
 
 add_library(d3d9_uploader SHARED
@@ -66,6 +71,8 @@ add_executable(uploader_standalone
     arcdps_uploader/main.cpp
     arcdps_uploader/imgui_impl_dx9.cpp
     arcdps_uploader/imgui_impl_dx9.h
+    arcdps_uploader/imgui_impl_win32.cpp
+    arcdps_uploader/imgui_impl_win32.h
     ${SOURCE}
     ${HEADERS}
 )
