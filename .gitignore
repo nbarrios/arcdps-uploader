@@ -260,3 +260,22 @@ paket-files/
 __pycache__/
 *.pyc
 out/
+
+# CMake files
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Visual Studio project/solution files from CMake
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.sln
