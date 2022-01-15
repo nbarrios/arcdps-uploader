@@ -1,0 +1,11 @@
+{
+    "name": "arcdps-uploader",
+    "version": "0.9.5.40",
+    "dependencies": [{
+        "name": "curl",
+        "features": [
+            "brotli",
+            "winssl"
+        ]
+    }]
+}
