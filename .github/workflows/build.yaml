@@ -24,3 +24,7 @@ jobs:
         with:
           name: build
           path: Release/d3d9_uploader.dll
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: Release/d3d9_uploader.dll
