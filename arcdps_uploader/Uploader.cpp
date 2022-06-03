@@ -39,6 +39,11 @@ inline auto initStorage(const std::string& path)
 								   make_column("filter", &Webhook::filter),
 								   make_column("filter_min", &Webhook::filter_min),
 								   make_column("success", &Webhook::success)
+						),
+						make_table("usertokens",
+									make_column("id", &UserToken::id, autoincrement(), primary_key()),
+									make_column("value", &UserToken::value),
+									make_column("disabled", &UserToken::disabled)
 						)
 		);
 }
@@ -62,9 +67,29 @@ Uploader::Uploader(fs::path data_path)
 	fs::path db_path = data_path / "uploader.db";
 	LOG_F(INFO, "DB Path: %s", db_path.string().c_str());
 	storage = std::make_unique<Storage>(initStorage(db_path.string()));
+
 	storage->sync_schema(true);
 	storage->open_forever();
-	
+
+	userTokens = storage->get_all<UserToken>();
+	if (userTokens.size() == 0)
+	{
+		userToken.id = -1;
+		userToken.value = "";
+		userToken.disabled = true;
+		storage->insert(userToken);
+		userTokens = storage->get_all<UserToken>();
+	}
+	userToken.id = userTokens.front().id;
+	userToken.value = userTokens.front().value;
+	userToken.disabled = userTokens.front().disabled;
+	memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+	if (userToken.disabled) {
+		memcpy(userToken.value_buf, "--DISABLED--", sizeof("--DISABLED--"));
+	} else {
+		memcpy(userToken.value_buf, userToken.value.c_str(), userToken.value.size());
+	}
+
 	//Webhooks
 	webhooks = storage->get_all<Webhook>();
 	for (auto& wh : webhooks)
@@ -295,6 +320,74 @@ uintptr_t Uploader::imgui_tick()
 
 		if (ImGui::CollapsingHeader("Options"))
 		{
+			if (ImGui::TreeNode("userToken"))
+			{
+				ImGui::PushItemWidth(250);
+				ImGui::InputText("userToken", userToken.value_buf, sizeof(userToken.value_buf), (userToken.disabled && ImGuiInputTextFlags_ReadOnly) );
+				ImGui::PopItemWidth();
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("userToken used by dps.report. Do not share this token with others, unless you know what you are doing!");
+					ImGui::EndTooltip();
+				}
+				if (ImGui::Button("Save") && !userToken.disabled)
+				{
+					userToken.value = userToken.value_buf;
+					storage->update(userToken);
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("Applies the userToken. It will then be used for future uploads.");
+					ImGui::EndTooltip();
+				}
+				ImGui::SameLine();
+				if (ImGui::Button("Reset"))
+				{
+					ImGui::OpenPopup("Reset_Confirm");
+				}
+				if (ImGui::BeginPopup("Reset_Confirm"))
+				{
+					if (ImGui::Button("Confirm"))
+					{
+						memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+						userToken.value = userToken.value_buf;
+						userToken.disabled = false;
+						storage->update(userToken);
+					}
+					ImGui::EndPopup();
+				}
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("Clear the current userToken. On the next upload a new token is generated wich will then be used for future uploads.");
+					ImGui::Text("Your current userToken will be lost!");
+					ImGui::EndTooltip();
+				}
+				ImGui::SameLine();
+				if (userToken.disabled) {
+					if (ImGui::Button("Enable")) {
+						memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+						memcpy(userToken.value_buf, userToken.value.c_str(), userToken.value.size());
+						userToken.disabled = false;
+						storage->update(userToken);
+					}
+				} else {
+					if (ImGui::Button("Disable")) {
+						memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+						memcpy(userToken.value_buf, "--DISABLED--", sizeof("--DISABLED--"));
+						userToken.disabled = true;
+						storage->update(userToken);
+					}
+				}
+				if (ImGui::IsItemHovered()) {
+					ImGui::BeginTooltip();
+					ImGui::Text("If the userToken is disabled, it will no longer be sent to dps.report. This means that a new userToken will be generated for every upload.");
+					ImGui::EndTooltip();
+				}
+				ImGui::TreePop();
+			}
 			if (ImGui::TreeNode("Webhooks (Discord)"))
 			{
 				for (auto& wh : webhooks)
@@ -828,11 +921,20 @@ void Uploader::upload_thread_loop() {
 			}
 
 			cpr::Response response;
-			response = cpr::Post(
-				cpr::Url{"https://dps.report/uploadContent"},
-				cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
-				//cpr::Header{{"accept-encoding", "gzip, deflate"}}
-			);
+			if (userToken.disabled) {
+				response = cpr::Post(
+					cpr::Url{"https://dps.report/uploadContent"},
+					cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
+					//cpr::Header{{"accept-encoding", "gzip, deflate"}}
+				);
+			} else {
+				response = cpr::Post(
+					cpr::Url{"https://dps.report/uploadContent"},
+					cpr::Parameters{{"userToken", userToken.value}},
+					cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
+					//cpr::Header{{"accept-encoding", "gzip, deflate"}}
+				);
+			}
 
 			StatusMessage status;
 			status.log_id = -1;
@@ -848,9 +950,20 @@ void Uploader::upload_thread_loop() {
 				log->players_json = parsed["players"].dump();
 				log->json_available = encounter["jsonAvailable"].get<bool>();
 				log->success = encounter["success"].get<bool>();
+				auto token = parsed["userToken"].get<std::string>();
 
 				status.msg = "Uploaded " + display + " - " + log->human_time + ".";
 				status.log_id = log->id;
+
+				if (userToken.value.empty() && !userToken.disabled && token.size() <= sizeof(userToken.value_buf)) {
+					memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+					memcpy(userToken.value_buf, token.c_str(), token.size());
+					userToken.value = userToken.value_buf;
+					storage->update(userToken);
+				}
+				else if (token != userToken.value) {
+					status.msg = "ERROR: Configured userToken did not work. Maybe a wrong token was used?";
+				}
 			}
 			else if (response.status_code == 401) {
 				status.msg = "Upload failed. Invalid Username/Password. Please login again.";

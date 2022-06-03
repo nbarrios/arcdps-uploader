@@ -18,6 +18,14 @@ struct StatusMessage
 	int log_id;
 };
 
+struct UserToken
+{
+	int id;
+	std::string value;
+	bool disabled;
+	char value_buf[128];
+};
+
 struct Webhook
 {
 	int id;
@@ -50,7 +58,8 @@ class Uploader
 
 	std::deque<int> upload_queue;
 	std::vector<std::future<cpr::Response>> ft_uploads;
-
+	std::vector<UserToken> userTokens;
+	UserToken userToken;
 	std::vector<Webhook> webhooks;
 	std::mutex wh_mutex;
 	std::deque<int> wh_queue;
