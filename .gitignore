@@ -11,6 +11,7 @@
 *.userprefs
 
 # Build results
+[Bb]uild/
 [Dd]ebug/
 [Dd]ebugPublic/
 [Rr]elease/
@@ -24,6 +25,7 @@ bld/
 
 # Visual Studio 2015 cache/options directory
 .vs/
+.vscode/
 # Uncomment if you have tasks that create the project's static files in wwwroot
 #wwwroot/
 
@@ -260,3 +262,22 @@ paket-files/
 __pycache__/
 *.pyc
 out/
+
+# CMake files
+CMakeLists.txt.user
+CMakeCache.txt
+CMakeFiles
+CMakeScripts
+Testing
+Makefile
+cmake_install.cmake
+install_manifest.txt
+compile_commands.json
+CTestTestfile.cmake
+_deps
+
+# Visual Studio project/solution files from CMake
+*.vcxproj
+*.vcxproj.user
+*.vcxproj.filters
+*.sln
