@@ -1,5 +1,5 @@
 {
-    "name": "ArcDPS Uploader",
+    "name": "arcdps-uploader",
     "version": "0.9.6",
     "dependencies": [{
         "name": "curl",
