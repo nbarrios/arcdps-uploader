@@ -37,16 +37,10 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    #- name: Upload DLL Artifact
-    #  uses: actions/upload-artifact@v3
-    #  with:
-    #    name: dll
-    #    path: ${{github.workspace}}/build/Release/d3d9_uploader.dll
-
     - uses: "marvinpinto/action-automatic-releases@latest"
-        with:
-          repo_token: "${{ secrets.GITHUB_TOKEN }}"
-          draft: true
-          prerelease: false
-          files: |
-            ${{github.workspace}}/build/Release/d3d9_uploader.dll
+      with:
+        repo_token: "${{ secrets.GITHUB_TOKEN }}"
+        draft: true
+        prerelease: false
+        files: |
+          ${{github.workspace}}/build/Release/d3d9_uploader.dll
