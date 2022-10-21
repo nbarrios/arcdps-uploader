@@ -31,7 +31,7 @@ jobs:
     - name: Configure CMake
       # Configure CMake in a 'build' subdirectory. `CMAKE_BUILD_TYPE` is only required if you are using a single-configuration generator such as make.
       # See https://cmake.org/cmake/help/latest/variable/CMAKE_BUILD_TYPE.html?highlight=cmake_build_type
-      run: cmake -B ${{github.workspace}}/build -A x64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake
+      run: cmake -B ${{github.workspace}}/build -A x64 -DCMAKE_BUILD_TYPE=${{env.BUILD_TYPE}} -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=${{env.VCPKG_TARGET_TRIPLET}}
 
     - name: Build
       # Build your program with the given configuration
@@ -42,5 +42,6 @@ jobs:
         repo_token: "${{ secrets.GITHUB_TOKEN }}"
         draft: true
         prerelease: false
+        automatic_release_tag: "latest"
         files: |
           ${{github.workspace}}/build/Release/d3d9_uploader.dll
