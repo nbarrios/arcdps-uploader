@@ -37,11 +37,8 @@ jobs:
       # Build your program with the given configuration
       run: cmake --build ${{github.workspace}}/build --config ${{env.BUILD_TYPE}}
 
-    - uses: "marvinpinto/action-automatic-releases@latest"
+    - name: Release
+      uses: softprops/action-gh-release@v1
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
         draft: true
-        prerelease: false
-        automatic_release_tag: "latest"
-        files: |
-          ${{github.workspace}}/build/Release/d3d9_uploader.dll
+        files: ${{github.workspace}}\build\Release\d3d9_uploader.dll
