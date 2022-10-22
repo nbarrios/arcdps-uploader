@@ -737,7 +737,7 @@ void Uploader::check_webhooks(int log_id)
 							found++;
 						}
 					}
-					int required = min(wh.filter_min, accounts.size());
+					int required = (int) min(wh.filter_min, accounts.size());
 					LOG_F(INFO, "Webhook (%s) - %s - Found/Required: %d/%d", wh.name.c_str(), log->boss_name.c_str(),found, required);
 					if (found < required)
 					{
@@ -751,7 +751,7 @@ void Uploader::check_webhooks(int log_id)
 
 				if (process) {
 					LOG_F(INFO, "Executing webhook \"%s\" for %s (%s)", wh.name.c_str(), log->filename.c_str(), log->boss_name.c_str());
-					std::async(std::launch::async, [](const Webhook& wh, Log log) {
+					auto webhook_future = std::async(std::launch::async, [](const Webhook& wh, Log log) {
 							cpr::Response response;
 							response = cpr::Post(
 								cpr::Url{wh.url},
