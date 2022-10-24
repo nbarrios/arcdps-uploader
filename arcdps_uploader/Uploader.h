@@ -80,7 +80,7 @@ public:
 	bool is_open;
 	bool in_combat;
 
-	Uploader(fs::path data_path);
+	Uploader(fs::path data_path, std::optional<fs::path> custom_log_path);
 	~Uploader();
 
 	uintptr_t imgui_tick();

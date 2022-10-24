@@ -50,7 +50,7 @@ inline auto initStorage(const std::string& path)
 using Storage = decltype(initStorage(""));
 static std::unique_ptr<Storage> storage;
 
-Uploader::Uploader(fs::path data_path)
+Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	: is_open(false)
 	, in_combat(false)
 	, ini_enabled(true)
@@ -102,30 +102,36 @@ Uploader::Uploader(fs::path data_path)
 		memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
 	}
 
-	/* my documents */
-	WCHAR my_documents[MAX_PATH];
-	HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, my_documents);
-	if (result == S_OK) {
-		//TODO: disable the whole thing if we can't find docs?
-		CHAR utf_path[MAX_PATH];
-		WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
-		std::string mydocs = std::string(utf_path);
-		fs::path mydocs_path = fs::path(mydocs);
-		LOG_F(INFO, "Documents Path: %s", mydocs_path.string().c_str());
-		log_path = mydocs_path / "Guild Wars 2\\addons\\arcdps\\arcdps.cbtlogs\\";
-		LOG_F(INFO, "Logs Path: %s", log_path.string().c_str());
-		if (!std::filesystem::exists(log_path))
-		{
-			{
-				StatusMessage msg;
-				msg.msg = "Log path not found. Is Arcdps logging enabled?";
-				std::lock_guard<std::mutex> lk(ts_msg_mutex);
-				thread_status_messages.push_back(msg);
-			}
+
+	if (custom_log_path) {
+		log_path = *custom_log_path;
+	} else {
+		/* my documents */
+		WCHAR my_documents[MAX_PATH];
+		HRESULT result = SHGetFolderPath(NULL, CSIDL_MYDOCUMENTS, NULL, SHGFP_TYPE_CURRENT, my_documents);
+		if (result == S_OK) {
+			//TODO: disable the whole thing if we can't find docs?
+			CHAR utf_path[MAX_PATH];
+			WideCharToMultiByte(CP_UTF8, 0, my_documents, -1, utf_path, MAX_PATH, NULL, NULL);
+			std::string mydocs = std::string(utf_path);
+			fs::path mydocs_path = fs::path(mydocs);
+			LOG_F(INFO, "Documents Path: %s", mydocs_path.string().c_str());
+			log_path = mydocs_path / "Guild Wars 2\\addons\\arcdps\\arcdps.cbtlogs\\";
+		}
+		else {
+			LOG_F(ERROR, "Failed to find Documents paths. Fatal.");
 		}
 	}
-	else {
-		LOG_F(ERROR, "Failed to find Documents paths. Fatal.");
+
+	LOG_F(INFO, "Logs Path: %s", log_path.string().c_str());
+	if (!std::filesystem::exists(log_path))
+	{
+		{
+			StatusMessage msg;
+			msg.msg = "Log path not found. Is Arcdps logging enabled?";
+			std::lock_guard<std::mutex> lk(ts_msg_mutex);
+			thread_status_messages.push_back(msg);
+		}
 	}
 }
 

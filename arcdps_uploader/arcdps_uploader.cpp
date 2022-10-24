@@ -9,10 +9,14 @@
 #include <chrono>
 #include <iomanip>
 #include "loguru.hpp"
+#include "SimpleIni.h"
 
 static char* arcvers;
 static arcdps_exports exports;
 static Uploader* up;
+
+void* get_ini_path;
+void* arc_log;
 
 /* dll main -- winapi */
 BOOL APIENTRY DllMain(HANDLE hModule, DWORD ulReasonForCall, LPVOID lpReserved) {
@@ -36,10 +40,22 @@ void dll_exit() {
 	return;
 }
 
+/* log to extensions tab in arcdps log window, thread/async safe */
+void log_arc(char* str) {
+	size_t(*log)(char*) = (size_t(*)(char*))arc_log;
+	if (log) (*log)(str);
+	return;
+}
+
 /* export -- arcdps looks for this exported function and calls the address it returns */
-extern "C" __declspec(dllexport) void* get_init_addr(char* arcversionstr, void* imguicontext) {
-	arcvers = arcversionstr;
-	ImGui::SetCurrentContext((ImGuiContext*)imguicontext);
+extern "C" __declspec(dllexport) void* get_init_addr(char* arcversion, ImGuiContext* imguictx, void* id3dptr, HANDLE arcdll, void* mallocfn, void* freefn, uint32_t d3dversion) {
+	arcvers = arcversion;
+
+	//Get pointers to exported functions
+	get_ini_path = (void*)GetProcAddress((HMODULE) arcdll, "e0");
+	arc_log = (void*)GetProcAddress((HMODULE) arcdll, "e8");
+
+	ImGui::SetCurrentContext(imguictx);
 	return mod_init;
 }
 
@@ -55,6 +71,30 @@ arcdps_exports* mod_init() {
 	char* argv[] = { "uploader.log", nullptr };
 	loguru::init(argc, argv);
 
+	std::optional<fs::path> log_path;
+
+	wchar_t*(*ini)() = (wchar_t*(*)(void))get_ini_path;
+	if (ini) {
+		wchar_t* ini_path = (*ini)();
+
+		CHAR utf_path[MAX_PATH];
+		if (WideCharToMultiByte(CP_UTF8, 0, ini_path, -1, utf_path, MAX_PATH, NULL, NULL)) {
+
+			CSimpleIniA ini;
+			ini.SetUnicode();
+
+			SI_Error rc = ini.LoadFile(utf_path);	
+			if (rc == SI_OK) {
+				const char* path;
+				path = ini.GetValue("session", "boss_encounter_path");
+				if (path) {
+					log_path = path; 
+					log_path = log_path.value() / "arcdps.cbtlogs";
+				}
+			}
+		}
+	}
+
 	const fs::path uploader_data_path = "./addons/uploader/";
 	if (!fs::exists(uploader_data_path))
 	{
@@ -62,11 +102,11 @@ arcdps_exports* mod_init() {
 	}
 
 	//Loguru Log
-	fs::path log_path = uploader_data_path / "uploader.log";
-	loguru::add_file(log_path.string().c_str(), loguru::Truncate, loguru::Verbosity_MAX);
+	fs::path uploader_log_path = uploader_data_path / "uploader.log";
+	loguru::add_file(uploader_log_path.string().c_str(), loguru::Truncate, loguru::Verbosity_MAX);
 
 	//Uploader
-	up = new Uploader(uploader_data_path);
+	up = new Uploader(uploader_data_path, log_path);
 	up->start_async_refresh_log_list();
 	up->start_upload_thread();
 
