@@ -7,6 +7,9 @@
 
 using json = nlohmann::json;
 
+const char* INI_SECTION_SETTINGS = "Settings";
+const char* INI_WVW_DETAILED_SETTING = "WvW_Detailed";
+
 inline auto initStorage(const std::string& path)
 {
 	using namespace sqlite_orm;
@@ -53,6 +56,7 @@ static std::unique_ptr<Storage> storage;
 Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	: is_open(false)
 	, in_combat(false)
+	, wvw_detailed_enabled(false)
 	, ini_enabled(true)
 {
 	//INI
@@ -61,6 +65,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	SI_Error error = ini.LoadFile(ini_path.string().c_str());
 	if (error == SI_OK) {
 		LOG_F(INFO, "Loaded INI file");
+		wvw_detailed_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
 	}
 
 	//Sqlite Database
@@ -71,6 +76,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	storage->sync_schema(true);
 	storage->open_forever();
 
+	//dps.report User Token
 	userTokens = storage->get_all<UserToken>();
 	if (userTokens.size() == 0)
 	{
@@ -927,20 +933,23 @@ void Uploader::upload_thread_loop() {
 			}
 
 			cpr::Response response;
-			if (userToken.disabled) {
-				response = cpr::Post(
-					cpr::Url{"https://dps.report/uploadContent"},
-					cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
-					//cpr::Header{{"accept-encoding", "gzip, deflate"}}
-				);
-			} else {
-				response = cpr::Post(
-					cpr::Url{"https://dps.report/uploadContent"},
-					cpr::Parameters{{"userToken", userToken.value}},
-					cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} }
-					//cpr::Header{{"accept-encoding", "gzip, deflate"}}
-				);
+			cpr::Url url = cpr::Url{"https://dps.report/uploadContent"};
+			cpr::Parameters params = cpr::Parameters{};
+			cpr::Multipart multi = cpr::Multipart{ {"file", cpr::File{log->path.string()}}, {"json", "1"} };
+
+			if (!userToken.disabled) {
+				params.AddParameter({ "userToken", userToken.value });
 			}
+
+			if (wvw_detailed_enabled) {
+				params.AddParameter({ "detailedwvw", "true" });
+			}
+
+			response = cpr::Post(
+				url,
+				params,
+				multi
+			);
 
 			StatusMessage status;
 			status.log_id = -1;

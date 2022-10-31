@@ -58,6 +58,7 @@ class Uploader
 
 	std::deque<int> upload_queue;
 	std::vector<std::future<cpr::Response>> ft_uploads;
+	bool wvw_detailed_enabled;
 	std::vector<UserToken> userTokens;
 	UserToken userToken;
 	std::vector<Webhook> webhooks;
