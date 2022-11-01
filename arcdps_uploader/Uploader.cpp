@@ -134,7 +134,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	{
 		{
 			StatusMessage msg;
-			msg.msg = "Log path not found. Is Arcdps logging enabled?";
+			msg.msg = "Log path not found. Is Arcdps logging enabled and is the log path valid?";
 			std::lock_guard<std::mutex> lk(ts_msg_mutex);
 			thread_status_messages.push_back(msg);
 		}

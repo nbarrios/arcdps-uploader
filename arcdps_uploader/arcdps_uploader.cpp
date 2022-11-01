@@ -87,7 +87,7 @@ arcdps_exports* mod_init() {
 			if (rc == SI_OK) {
 				const char* path;
 				path = ini.GetValue("session", "boss_encounter_path");
-				if (path) {
+				if (path && strlen(path) > 0) {
 					log_path = path; 
 					log_path = log_path.value() / "arcdps.cbtlogs";
 				}
