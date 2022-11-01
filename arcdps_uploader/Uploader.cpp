@@ -146,6 +146,7 @@ Uploader::~Uploader()
 	LOG_F(INFO, "Uploader destructor begin...");
 	// Save our settings if we previously loaded/created an ini file
 	if (ini_enabled) {
+		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, wvw_detailed_enabled);
 		ini.SaveFile(ini_path.string().c_str());
 	}
 
@@ -332,7 +333,7 @@ uintptr_t Uploader::imgui_tick()
 
 		if (ImGui::CollapsingHeader("Options"))
 		{
-			if (ImGui::TreeNode("userToken"))
+			if (ImGui::TreeNode("dps.report User Token"))
 			{
 				ImGui::PushItemWidth(250);
 				ImGui::InputText("userToken", userToken.value_buf, sizeof(userToken.value_buf), (userToken.disabled && ImGuiInputTextFlags_ReadOnly) );
@@ -560,6 +561,19 @@ uintptr_t Uploader::imgui_tick()
 					}
 				}
 				
+				ImGui::TreePop();
+			}
+
+			if (ImGui::TreeNode("Other"))
+			{
+				ImGui::Checkbox("Enable detailed WvW reports", &wvw_detailed_enabled);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("Particularly long logs may fail to upload if this is enabled");
+					ImGui::EndTooltip();
+				}
+
 				ImGui::TreePop();
 			}
 		}
@@ -970,14 +984,16 @@ void Uploader::upload_thread_loop() {
 				status.msg = "Uploaded " + display + " - " + log->human_time + ".";
 				status.log_id = log->id;
 
-				if (userToken.value.empty() && !userToken.disabled && token.size() <= sizeof(userToken.value_buf)) {
-					memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
-					memcpy(userToken.value_buf, token.c_str(), token.size());
-					userToken.value = userToken.value_buf;
-					storage->update(userToken);
-				}
-				else if (token != userToken.value) {
-					status.msg = "ERROR: Configured userToken did not work. Maybe a wrong token was used?";
+				if (!userToken.disabled) {
+					if (userToken.value.empty() && token.size() <= sizeof(userToken.value_buf)) {
+						memset(userToken.value_buf, 0, sizeof(userToken.value_buf));
+						memcpy(userToken.value_buf, token.c_str(), token.size());
+						userToken.value = userToken.value_buf;
+						storage->update(userToken);
+					}
+					else if (token != userToken.value) {
+						status.msg = "ERROR: Configured userToken did not work. Maybe a wrong token was used?";
+					}
 				}
 			}
 			else if (response.status_code == 401) {
