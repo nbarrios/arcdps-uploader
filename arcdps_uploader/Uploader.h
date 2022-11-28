@@ -49,7 +49,8 @@ struct Settings
 {
 	bool wvw_detailed_enabled;
 	bool gw2bot_enabled;
-	std::string gw2bot_key;
+	char gw2bot_key[256];
+	bool gw2bot_success_only;
 };
 
 class Uploader
@@ -96,6 +97,7 @@ public:
 	void create_log_table(Log& l);
 	
 	void check_webhooks(int log_id);
+	void check_gw2bot(int log_id);
 
 	void start_async_refresh_log_list();
 

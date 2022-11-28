@@ -11,6 +11,7 @@ const char* INI_SECTION_SETTINGS = "Settings";
 const char* INI_WVW_DETAILED_SETTING = "WvW_Detailed";
 const char* INI_GW2BOT_ENABLED = "GW2Bot_Enabled";
 const char* INI_GW2BOT_KEY = "GW2Bot_Key";
+const char* INI_GW2BOT_SUCCESS_ONLY = "GW2Bot_Success_Only";
 
 inline auto initStorage(const std::string& path)
 {
@@ -58,7 +59,7 @@ static std::unique_ptr<Storage> storage;
 Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	: is_open(false)
 	, in_combat(false)
-	, settings{false, false, ""}
+	, settings{false, false, "", false}
 	, ini_enabled(true)
 {
 	//INI
@@ -69,8 +70,9 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 		LOG_F(INFO, "Loaded INI file");
 		settings.wvw_detailed_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
 		settings.gw2bot_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, false);
-		settings.gw2bot_key = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
-		settings.gw2bot_key.reserve(128);
+		const char* pv = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
+		strcpy(settings.gw2bot_key, pv);
+		settings.gw2bot_success_only = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY, false);
 	}
 
 	//Sqlite Database
@@ -153,7 +155,8 @@ Uploader::~Uploader()
 	if (ini_enabled) {
 		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, settings.wvw_detailed_enabled);
 		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, settings.gw2bot_enabled);
-		ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key.c_str());
+		ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key);
+		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY, settings.gw2bot_success_only);
 		ini.SaveFile(ini_path.string().c_str());
 	}
 
@@ -571,6 +574,51 @@ uintptr_t Uploader::imgui_tick()
 				ImGui::TreePop();
 			}
 
+			if (ImGui::TreeNode("GW2Bot"))
+			{
+				ImGui::Checkbox("GW2Bot Integration Enabled", &settings.gw2bot_enabled);
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::Text("Post logs to GW2Bot for use with the EVTC Automation commands.");
+					ImGui::EndTooltip();
+				}
+
+				ImGui::SameLine();
+				ImGui::TextDisabled("(?)");
+				if (ImGui::IsItemHovered())
+				{
+					ImGui::BeginTooltip();
+					ImGui::PushTextWrapPos(ImGui::GetFontSize() * 35.0f);
+					ImGui::TextUnformatted("Use the /evtc_automation autopost add_destination command to have GW2Bot post logs to a Discord channel.\nSee gw2bot.info/commands for details.");
+					ImGui::PopTextWrapPos();
+					ImGui::EndTooltip();
+				}
+
+				if (settings.gw2bot_enabled)
+				{
+					ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() - ImGui::CalcTextSize("EVTC Api Key").x - 5);
+					ImGui::InputText("EVTC Api Key", settings.gw2bot_key, sizeof(settings.gw2bot_key));
+					ImGui::PopItemWidth();
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Use GW2Bot's /evtc_automation api_key command to generate an API key.");
+						ImGui::EndTooltip();
+					}
+
+					ImGui::Checkbox("Clears only", &settings.gw2bot_success_only);
+					if (ImGui::IsItemHovered())
+					{
+						ImGui::BeginTooltip();
+						ImGui::Text("Only post clears/successful logs to GW2Bot.");
+						ImGui::EndTooltip();
+					}
+				}
+
+				ImGui::TreePop();
+			}
+
 			if (ImGui::TreeNode("Other"))
 			{
 				ImGui::Checkbox("Enable detailed WvW reports", &settings.wvw_detailed_enabled);
@@ -798,6 +846,43 @@ void Uploader::check_webhooks(int log_id)
 	}
 }
 
+void Uploader::check_gw2bot(int log_id)
+{
+	if (!settings.gw2bot_enabled) return; 
+
+	auto log = storage->get_pointer<Log>(log_id);
+	if (log)
+	{
+		bool process = true;
+		if (!log->success && settings.gw2bot_success_only) process = false;
+
+		if (process) {
+			LOG_F(INFO, "Posting to GW2Bot: %s", log->permalink.c_str());
+			auto gw2bot_future = std::async(std::launch::async, [this](const char* key, Log log) {
+					cpr::Response response;
+					response = cpr::Post(
+						cpr::Url{"https://api.gw2bot.info/v1/evtc/notification"},
+						cpr::Header{
+							{"accept", "application/json"},
+							{"Authorization", "Bearer " + std::string(key)},
+							{"Content-Type", "application/json"},
+						},
+						cpr::Body{"{\"dpsreport_url\": \"" + log.permalink + "\"}"}
+					);
+					if (response.status_code != 201) {
+						StatusMessage status;
+						status.msg = "GW2Bot Error: " + response.text;
+						{
+							std::lock_guard<std::mutex> lk(ts_msg_mutex);
+							thread_status_messages.push_back(status);
+						}
+					}
+					LOG_F(INFO, "GW2Bot response: %s", response.text.c_str());
+			}, settings.gw2bot_key, *log);
+		}
+	}
+}
+
 void Uploader::start_async_refresh_log_list() {
 	LOG_F(INFO, "Starting Async Log Refresh");
 	using namespace sqlite_orm;
@@ -1019,7 +1104,10 @@ void Uploader::upload_thread_loop() {
 			try
 			{
 				storage->update(*log);
-				if (log->uploaded && !log->error) check_webhooks(log->id);
+				if (log->uploaded && !log->error) {
+					check_webhooks(log->id);
+					check_gw2bot(log->id);
+				};
 			}
 			catch (std::system_error e)
 			{
