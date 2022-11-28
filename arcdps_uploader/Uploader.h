@@ -45,11 +45,20 @@ struct Webhook
 	char filter_buf[128];
 };
 
+struct Settings
+{
+	bool wvw_detailed_enabled;
+	bool gw2bot_enabled;
+	std::string gw2bot_key;
+};
+
 class Uploader
 {
 	bool ini_enabled;
 	fs::path ini_path;
 	CSimpleIniA ini;
+
+	Settings settings;
 
 	fs::path log_path;
 	std::vector<Log> logs;
@@ -58,7 +67,6 @@ class Uploader
 
 	std::deque<int> upload_queue;
 	std::vector<std::future<cpr::Response>> ft_uploads;
-	bool wvw_detailed_enabled;
 	std::vector<UserToken> userTokens;
 	UserToken userToken;
 	std::vector<Webhook> webhooks;

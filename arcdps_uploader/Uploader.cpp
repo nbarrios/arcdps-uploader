@@ -9,6 +9,8 @@ using json = nlohmann::json;
 
 const char* INI_SECTION_SETTINGS = "Settings";
 const char* INI_WVW_DETAILED_SETTING = "WvW_Detailed";
+const char* INI_GW2BOT_ENABLED = "GW2Bot_Enabled";
+const char* INI_GW2BOT_KEY = "GW2Bot_Key";
 
 inline auto initStorage(const std::string& path)
 {
@@ -56,7 +58,7 @@ static std::unique_ptr<Storage> storage;
 Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	: is_open(false)
 	, in_combat(false)
-	, wvw_detailed_enabled(false)
+	, settings{false, false, ""}
 	, ini_enabled(true)
 {
 	//INI
@@ -65,7 +67,10 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 	SI_Error error = ini.LoadFile(ini_path.string().c_str());
 	if (error == SI_OK) {
 		LOG_F(INFO, "Loaded INI file");
-		wvw_detailed_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
+		settings.wvw_detailed_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
+		settings.gw2bot_enabled = ini.GetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, false);
+		settings.gw2bot_key = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
+		settings.gw2bot_key.reserve(128);
 	}
 
 	//Sqlite Database
@@ -146,7 +151,9 @@ Uploader::~Uploader()
 	LOG_F(INFO, "Uploader destructor begin...");
 	// Save our settings if we previously loaded/created an ini file
 	if (ini_enabled) {
-		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, wvw_detailed_enabled);
+		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, settings.wvw_detailed_enabled);
+		ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, settings.gw2bot_enabled);
+		ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key.c_str());
 		ini.SaveFile(ini_path.string().c_str());
 	}
 
@@ -566,7 +573,7 @@ uintptr_t Uploader::imgui_tick()
 
 			if (ImGui::TreeNode("Other"))
 			{
-				ImGui::Checkbox("Enable detailed WvW reports", &wvw_detailed_enabled);
+				ImGui::Checkbox("Enable detailed WvW reports", &settings.wvw_detailed_enabled);
 				if (ImGui::IsItemHovered())
 				{
 					ImGui::BeginTooltip();
@@ -955,7 +962,7 @@ void Uploader::upload_thread_loop() {
 				params.AddParameter({ "userToken", userToken.value });
 			}
 
-			if (wvw_detailed_enabled) {
+			if (settings.wvw_detailed_enabled) {
 				params.AddParameter({ "detailedwvw", "true" });
 			}
 
