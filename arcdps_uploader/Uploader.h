@@ -94,6 +94,9 @@ public:
 	~Uploader();
 
 	uintptr_t imgui_tick();
+	void imgui_draw_status();
+	void imgui_draw_options();
+	void imgui_window_checkbox();
 	void create_log_table(Log& l);
 	
 	void check_webhooks(int log_id);
