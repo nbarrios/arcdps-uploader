@@ -198,6 +198,49 @@ uintptr_t Uploader::imgui_tick() {
                               ImVec4(0.f, 1.f, 0.f, 0.5f));
         ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.f, 1.f, 0.f, 0.25f));
 
+        imgui_draw_logs();
+
+        ImGui::Spacing();
+        ImGui::Spacing();
+
+        ImGui::Separator();
+
+        imgui_draw_status();
+        imgui_draw_options();
+
+        if (in_combat) {
+            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f),
+                               "In Combat - Uploads Disabled");
+        }
+
+        ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
+        ImGui::PopStyleColor();
+
+        ImGui::End();
+
+        ImGui::PopStyleVar();
+
+        // Pick up any messages from our upload thread
+        {
+            std::lock_guard<std::mutex> lk(ts_msg_mutex);
+            status_messages.insert(status_messages.end(),
+                                   thread_status_messages.begin(),
+                                   thread_status_messages.end());
+            thread_status_messages.clear();
+        }
+    }
+
+    if (!in_combat) {
+        poll_async_refresh_log_list();
+    }
+
+    return uintptr_t();
+}
+
+void Uploader::imgui_draw_logs() {
         static bool success_only = false;
 
         static ImVec2 log_size(450, 258);
@@ -318,45 +361,6 @@ uintptr_t Uploader::imgui_tick() {
             }
             ImGui::SetClipboardText(msg.c_str());
         }
-
-        ImGui::Spacing();
-        ImGui::Spacing();
-
-        ImGui::Separator();
-
-        imgui_draw_status();
-        imgui_draw_options();
-
-        if (in_combat) {
-            ImGui::TextColored(ImVec4(1.f, 0.f, 0.f, 1.f),
-                               "In Combat - Uploads Disabled");
-        }
-
-        ImGui::PopStyleColor();
-        ImGui::PopStyleColor();
-        ImGui::PopStyleColor();
-        ImGui::PopStyleColor();
-        ImGui::PopStyleColor();
-
-        ImGui::End();
-
-        ImGui::PopStyleVar();
-
-        // Pick up any messages from our upload thread
-        {
-            std::lock_guard<std::mutex> lk(ts_msg_mutex);
-            status_messages.insert(status_messages.end(),
-                                   thread_status_messages.begin(),
-                                   thread_status_messages.end());
-            thread_status_messages.clear();
-        }
-    }
-
-    if (!in_combat) {
-        poll_async_refresh_log_list();
-    }
-
-    return uintptr_t();
 }
 
 void Uploader::imgui_draw_status() {
