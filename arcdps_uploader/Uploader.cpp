@@ -58,10 +58,7 @@ using Storage = decltype(initStorage(""));
 static std::unique_ptr<Storage> storage;
 
 Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
-    : is_open(false),
-      in_combat(false),
-      settings{false, false, "", false},
-      ini_enabled(true) {
+    : is_open(false), in_combat(false), settings{}, ini_enabled(true) {
     // INI
     ini_path = data_path / "uploader.ini";
     ini.SetUnicode();
@@ -70,12 +67,27 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
         LOG_F(INFO, "Loaded INI file");
         settings.wvw_detailed_enabled = ini.GetBoolValue(
             INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
+
         settings.gw2bot_enabled =
             ini.GetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, false);
-        const char* pv = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
-        strcpy(settings.gw2bot_key, pv);
+
+        settings.gw2bot_key = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
+
         settings.gw2bot_success_only = ini.GetBoolValue(
             INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY, false);
+
+        settings.aleeva.enabled =
+            ini.GetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_ENABLED, false);
+
+        settings.aleeva.refresh_token = ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_REFRESH_TOKEN, "");
+
+        try {
+            settings.aleeva.token_expiration = std::stoll(ini.GetValue(
+                INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION, "0"));
+        } catch (std::exception& e) {
+            LOG_F(ERROR, "Failed to parse Aleeva token expiration: %s",
+                  e.what());
+        }
     }
 
     // Sqlite Database
@@ -161,9 +173,15 @@ Uploader::~Uploader() {
                          settings.wvw_detailed_enabled);
         ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED,
                          settings.gw2bot_enabled);
-        ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key);
+        ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key.c_str());
         ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY,
                          settings.gw2bot_success_only);
+        ini.SetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_ENABLED,
+                         settings.aleeva.enabled);
+        ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_REFRESH_TOKEN,
+                         settings.aleeva.refresh_token.c_str());
+        ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION,
+                         std::to_string(settings.aleeva.token_expiration).c_str());
         ini.SaveFile(ini_path.string().c_str());
     }
 

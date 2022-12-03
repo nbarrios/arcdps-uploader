@@ -9,6 +9,7 @@
 #include "Revtc.h"
 #include "sqlite_orm.h"
 #include "Log.h"
+#include "Settings.h"
 
 namespace fs = std::filesystem;
 
@@ -43,14 +44,6 @@ struct Webhook
 	char name_buf[64];
 	char url_buf[192];
 	char filter_buf[128];
-};
-
-struct Settings
-{
-	bool wvw_detailed_enabled;
-	bool gw2bot_enabled;
-	char gw2bot_key[256];
-	bool gw2bot_success_only;
 };
 
 class Uploader
