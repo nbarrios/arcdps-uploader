@@ -12,6 +12,7 @@ set(GW2_DIR "" CACHE PATH "GW2 Directory")
 set(SOURCE
     arcdps_uploader/arcdps_uploader.cpp
     arcdps_uploader/arc_logging.cpp
+    arcdps_uploader/Aleeva.cpp
     arcdps_uploader/Uploader.cpp
     arcdps_uploader/Log.cpp
     arcdps_uploader/imgui/imgui.cpp
@@ -19,6 +20,7 @@ set(SOURCE
     arcdps_uploader/imgui/imgui_draw.cpp
     arcdps_uploader/imgui/imgui_tables.cpp
     arcdps_uploader/imgui/imgui_widgets.cpp
+    arcdps_uploader/imgui/imgui_stdlib.cpp
     arcdps_uploader/loguru.cpp
     arcdps_uploader/sqlite3.c
     arcdps_uploader/cpr/auth.cpp
@@ -49,6 +51,7 @@ set(HEADERS
     arcdps_uploader/imgui/imstb_rectpack.h
     arcdps_uploader/imgui/imstb_textedit.h
     arcdps_uploader/imgui/imstb_truetype.h
+    arcdps_uploader/imgui/imgui_stdlib.h
 )
 
 add_library(d3d9_uploader SHARED

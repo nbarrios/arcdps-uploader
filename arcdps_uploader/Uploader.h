@@ -76,9 +76,20 @@ class Uploader
 	std::mutex ut_mutex;
 	std::condition_variable ut_cv;
 
+	void imgui_draw_logs();
+	void imgui_draw_status();
+	void imgui_draw_options();
+	void create_log_table(Log& l);
+
+	void check_webhooks(int log_id);
+	void check_gw2bot(int log_id);
+
 	void upload_thread_loop();
 	void add_pending_upload_logs(std::vector<int>& queue);
 	void poll_async_refresh_log_list();
+
+	void queue_status_message(const std::string& msg, int log_id = -1);
+	void queue_status_message(const StatusMessage& status);
 public:
 	bool is_open;
 	bool in_combat;
@@ -87,15 +98,8 @@ public:
 	~Uploader();
 
 	uintptr_t imgui_tick();
-	void imgui_draw_logs();
-	void imgui_draw_status();
-	void imgui_draw_options();
 	void imgui_window_checkbox();
-	void create_log_table(Log& l);
 	
-	void check_webhooks(int log_id);
-	void check_gw2bot(int log_id);
-
 	void start_async_refresh_log_list();
 
 	void start_upload_thread();

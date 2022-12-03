@@ -6,15 +6,11 @@
 #include <thread>
 
 #include "imgui/imgui.h"
+#include "imgui/imgui_stdlib.h"
 #include "loguru.hpp"
+#include "Aleeva.h"
 
 using json = nlohmann::json;
-
-const char* INI_SECTION_SETTINGS = "Settings";
-const char* INI_WVW_DETAILED_SETTING = "WvW_Detailed";
-const char* INI_GW2BOT_ENABLED = "GW2Bot_Enabled";
-const char* INI_GW2BOT_KEY = "GW2Bot_Key";
-const char* INI_GW2BOT_SUCCESS_ONLY = "GW2Bot_Success_Only";
 
 inline auto initStorage(const std::string& path) {
     using namespace sqlite_orm;
@@ -259,126 +255,124 @@ uintptr_t Uploader::imgui_tick() {
 }
 
 void Uploader::imgui_draw_logs() {
-        static bool success_only = false;
+    static bool success_only = false;
 
-        static ImVec2 log_size(450, 258);
-        ImGui::AlignTextToFramePadding();
-        ImGui::TextUnformatted("Recent Logs");
-        ImGui::SameLine(450.f - 170.f);
-        ImGui::Checkbox("Filter Wipes", &success_only);
-        ImGui::SameLine(450.f - 54.f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 3.f));
-        if (ImGui::Button("Refresh")) {
-            start_async_refresh_log_list();
+    static ImVec2 log_size(450, 258);
+    ImGui::AlignTextToFramePadding();
+    ImGui::TextUnformatted("Recent Logs");
+    ImGui::SameLine(450.f - 170.f);
+    ImGui::Checkbox("Filter Wipes", &success_only);
+    ImGui::SameLine(450.f - 54.f);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6.f, 3.f));
+    if (ImGui::Button("Refresh")) {
+        start_async_refresh_log_list();
+    }
+    ImGui::PopStyleVar();
+
+    ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_NoScrollbar);
+
+    ImGui::Columns(3, "mycolumns");
+    float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.9f;
+    ImGui::SetColumnOffset(0, 0);
+    ImGui::SetColumnOffset(
+        1, last_col - ImGui::CalcTextSize("00:00PM (Mon Jan 00)").x * 1.1f);
+    ImGui::SetColumnOffset(2, last_col);
+    ImGui::TextUnformatted("Name");
+    ImGui::NextColumn();
+    ImGui::TextUnformatted("Created");
+    ImGui::NextColumn();
+    ImGui::TextUnformatted("");
+    ImGui::NextColumn();
+    ImGui::Separator();
+    static bool selected[75]{false};
+    for (int i = 0; i < logs.size(); ++i) {
+        Log& s = logs.at(i);
+        std::string display;
+        if (s.uploaded) {
+            display = s.boss_name;
+        } else {
+            display = s.filename;
         }
-        ImGui::PopStyleVar();
 
-        ImGui::BeginChild("List", log_size, true, ImGuiWindowFlags_NoScrollbar);
+        ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
+        if (s.success) {
+            col = ImVec4(0.f, 1.f, 0.f, 1.f);
+        } else if (success_only) {
+            continue;
+        }
 
-        ImGui::Columns(3, "mycolumns");
-        float last_col = log_size.x - ImGui::CalcTextSize("View").x * 1.9f;
-        ImGui::SetColumnOffset(0, 0);
-        ImGui::SetColumnOffset(
-            1, last_col - ImGui::CalcTextSize("00:00PM (Mon Jan 00)").x * 1.1f);
-        ImGui::SetColumnOffset(2, last_col);
-        ImGui::TextUnformatted("Name");
+        ImGui::PushStyleColor(ImGuiCol_Text, col);
+        ImGui::PushID(s.human_time.c_str());
+        ImGui::Selectable(display.c_str(), &selected[i],
+                          ImGuiSelectableFlags_SpanAllColumns);
+        ImGui::PopID();
+        ImGui::PopStyleColor();
+        ImGui::SetItemAllowOverlap();
         ImGui::NextColumn();
-        ImGui::TextUnformatted("Created");
+        ImGui::Text(s.human_time.c_str());
         ImGui::NextColumn();
-        ImGui::TextUnformatted("");
-        ImGui::NextColumn();
-        ImGui::Separator();
-        static bool selected[75]{false};
-        for (int i = 0; i < logs.size(); ++i) {
-            Log& s = logs.at(i);
-            std::string display;
-            if (s.uploaded) {
-                display = s.boss_name;
-            } else {
-                display = s.filename;
-            }
-
-            ImVec4 col = ImVec4(1.f, 0.f, 0.f, 1.f);
-            if (s.success) {
-                col = ImVec4(0.f, 1.f, 0.f, 1.f);
-            } else if (success_only) {
-                continue;
-            }
-
-            ImGui::PushStyleColor(ImGuiCol_Text, col);
-            ImGui::PushID(s.human_time.c_str());
-            ImGui::Selectable(display.c_str(), &selected[i],
-                              ImGuiSelectableFlags_SpanAllColumns);
-            ImGui::PopID();
-            ImGui::PopStyleColor();
-            ImGui::SetItemAllowOverlap();
-            ImGui::NextColumn();
-            ImGui::Text(s.human_time.c_str());
-            ImGui::NextColumn();
-            if (s.uploaded) {
-                ImGui::PushID(s.filename.c_str());
-                if (ImGui::SmallButton("View")) {
-                    if (!s.permalink.empty()) {
-                        int sz =
-                            MultiByteToWideChar(CP_UTF8, 0, s.permalink.c_str(),
-                                                (int)s.permalink.size(), 0, 0);
-                        std::wstring wstr(sz, 0);
+        if (s.uploaded) {
+            ImGui::PushID(s.filename.c_str());
+            if (ImGui::SmallButton("View")) {
+                if (!s.permalink.empty()) {
+                    int sz =
                         MultiByteToWideChar(CP_UTF8, 0, s.permalink.c_str(),
-                                            (int)s.permalink.size(), &wstr[0],
-                                            sz);
-                        ShellExecute(0, 0, wstr.c_str(), 0, 0, SW_SHOW);
-                    }
-                }
-                ImGui::PopID();
-            }
-
-            ImGui::NextColumn();
-
-            if (logs.size() < 9 && i == logs.size() - 1) {
-                log_size.y = ImGui::GetCursorPosY();
-            } else if (i == 9) {
-                log_size.y = ImGui::GetCursorPosY();
-            }
-        }
-        ImGui::Columns();
-        ImGui::EndChild();
-
-        if (ImGui::Button("Copy Selected")) {
-            std::string msg;
-            for (int i = 0; i < logs.size(); ++i) {
-                if (selected[i]) {
-                    const Log& s = logs.at(i);
-                    msg += s.permalink + "\n";
+                                            (int)s.permalink.size(), 0, 0);
+                    std::wstring wstr(sz, 0);
+                    MultiByteToWideChar(CP_UTF8, 0, s.permalink.c_str(),
+                                        (int)s.permalink.size(), &wstr[0], sz);
+                    ShellExecute(0, 0, wstr.c_str(), 0, 0, SW_SHOW);
                 }
             }
-            ImGui::SetClipboardText(msg.c_str());
+            ImGui::PopID();
         }
 
-        ImGui::SameLine();
+        ImGui::NextColumn();
 
-        if (ImGui::Button("Copy & Format Recent Clears")) {
-            std::time_t now = std::time(nullptr);
-            std::tm* local = std::localtime(&now);
-            char buf[64];
-            strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+        if (logs.size() < 9 && i == logs.size() - 1) {
+            log_size.y = ImGui::GetCursorPosY();
+        } else if (i == 9) {
+            log_size.y = ImGui::GetCursorPosY();
+        }
+    }
+    ImGui::Columns();
+    ImGui::EndChild();
 
-            std::string msg(buf);
-
-            std::chrono::system_clock::time_point current =
-                std::chrono::system_clock::now();
-            std::chrono::system_clock::time_point past =
-                current - std::chrono::minutes(150);
-            for (int i = 0; i < logs.size(); ++i) {
+    if (ImGui::Button("Copy Selected")) {
+        std::string msg;
+        for (int i = 0; i < logs.size(); ++i) {
+            if (selected[i]) {
                 const Log& s = logs.at(i);
-                if (s.uploaded && s.success) {
-                    if (s.time > past) {
-                        msg +=
-                            s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
-                    }
+                msg += s.permalink + "\n";
+            }
+        }
+        ImGui::SetClipboardText(msg.c_str());
+    }
+
+    ImGui::SameLine();
+
+    if (ImGui::Button("Copy & Format Recent Clears")) {
+        std::time_t now = std::time(nullptr);
+        std::tm* local = std::localtime(&now);
+        char buf[64];
+        strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+
+        std::string msg(buf);
+
+        std::chrono::system_clock::time_point current =
+            std::chrono::system_clock::now();
+        std::chrono::system_clock::time_point past =
+            current - std::chrono::minutes(150);
+        for (int i = 0; i < logs.size(); ++i) {
+            const Log& s = logs.at(i);
+            if (s.uploaded && s.success) {
+                if (s.time > past) {
+                    msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
                 }
             }
-            ImGui::SetClipboardText(msg.c_str());
         }
+        ImGui::SetClipboardText(msg.c_str());
+    }
 }
 
 void Uploader::imgui_draw_status() {
@@ -654,6 +648,54 @@ void Uploader::imgui_draw_options() {
             ImGui::TreePop();
         }
 
+        if (ImGui::TreeNode("Aleeva")) {
+            ImGui::Checkbox("Aleeva Integration Enabled",
+                            &settings.aleeva.enabled);
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text("Post logs for Aleeva to manage");
+                ImGui::EndTooltip();
+            }
+
+            if (settings.aleeva.enabled) {
+                if (!settings.aleeva.authorised) {
+                    const char* access_title = "Access Code";
+                    ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
+                                         ImGui::CalcTextSize(access_title).x -
+                                         5);
+                    ImGui::InputText(access_title, &settings.aleeva.access_code);
+                    ImGui::PopItemWidth();
+                    if (ImGui::IsItemHovered()) {
+                        ImGui::BeginTooltip();
+                        ImGui::Text(
+                            "Use Aleeva's /profile command to generate an "
+                            "access "
+                            "code");
+                        ImGui::EndTooltip();
+                    }
+
+                    if (ImGui::Button("Login")) {
+                        auto future = std::async(std::launch::async, [&]() {
+                            Aleeva::authorize(settings);
+                        });
+                    }
+                } else {
+                    if (ImGui::Button("Logout")) {
+                        Aleeva::deauthorize(settings);
+                    }
+                }
+
+                ImGui::Checkbox("Clears only", &settings.gw2bot_success_only);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("Only post clears/successful logs to Aleeva.");
+                    ImGui::EndTooltip();
+                }
+            }
+
+            ImGui::TreePop();
+        }
+
         if (ImGui::TreeNode("GW2Bot")) {
             ImGui::Checkbox("GW2Bot Integration Enabled",
                             &settings.gw2bot_enabled);
@@ -683,8 +725,7 @@ void Uploader::imgui_draw_options() {
             if (settings.gw2bot_enabled) {
                 ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
                                      ImGui::CalcTextSize("EVTC Api Key").x - 5);
-                ImGui::InputText("EVTC Api Key", settings.gw2bot_key,
-                                 sizeof(settings.gw2bot_key));
+                ImGui::InputText("EVTC Api Key", &settings.gw2bot_key);
                 ImGui::PopItemWidth();
                 if (ImGui::IsItemHovered()) {
                     ImGui::BeginTooltip();
@@ -927,7 +968,7 @@ void Uploader::check_gw2bot(int log_id) {
             LOG_F(INFO, "Posting to GW2Bot: %s", log->permalink.c_str());
             auto gw2bot_future = std::async(
                 std::launch::async,
-                [this](const char* key, Log log) {
+                [this](const std::string& key, Log log) {
                     cpr::Response response;
                     response = cpr::Post(
                         cpr::Url{
@@ -940,12 +981,7 @@ void Uploader::check_gw2bot(int log_id) {
                         cpr::Body{"{\"dpsreport_url\": \"" + log.permalink +
                                   "\"}"});
                     if (response.status_code != 201) {
-                        StatusMessage status;
-                        status.msg = "GW2Bot Error: " + response.text;
-                        {
-                            std::lock_guard<std::mutex> lk(ts_msg_mutex);
-                            thread_status_messages.push_back(status);
-                        }
+                        queue_status_message("GW2Bot Error: " + response.text);
                     }
                     LOG_F(INFO, "GW2Bot response: %s", response.text.c_str());
                 },
@@ -1068,6 +1104,12 @@ void Uploader::start_upload_thread() {
     // Create a thread that spins, waiting for uploads to process
     upload_thread_run = true;
     upload_thread = std::thread(&Uploader::upload_thread_loop, this);
+    // Aleeva Authorise
+    if (settings.aleeva.enabled) {
+        if (Aleeva::is_refresh_token_valid(settings)) {
+            Aleeva::authorize(settings);
+        }
+    }
 }
 
 void Uploader::add_pending_upload_logs(std::vector<int>& queue) {
@@ -1106,12 +1148,8 @@ void Uploader::upload_thread_loop() {
 
             display = log->filename;
 
-            StatusMessage start;
-            start.msg = "Uploading " + display + " - " + log->human_time + ".";
-            {
-                std::lock_guard<std::mutex> lk(ts_msg_mutex);
-                thread_status_messages.push_back(start);
-            }
+            queue_status_message("Uploading " + display + " - " +
+                                 log->human_time + ".");
 
             cpr::Response response;
             cpr::Url url = cpr::Url{"https://dps.report/uploadContent"};
@@ -1192,10 +1230,17 @@ void Uploader::upload_thread_loop() {
                 LOG_F(ERROR, "Failed to update log: %s", e.what());
             }
 
-            {
-                std::lock_guard<std::mutex> lk(ts_msg_mutex);
-                thread_status_messages.push_back(status);
-            }
+            queue_status_message(status);
         }
     }
+}
+
+void Uploader::queue_status_message(const std::string& msg, int log_id) {
+    StatusMessage status{msg, log_id};
+    queue_status_message(status);
+}
+
+void Uploader::queue_status_message(const StatusMessage& msg) {
+    std::lock_guard<std::mutex> lk(ts_msg_mutex);
+    thread_status_messages.push_back(msg);
 }
