@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <map>
 #include <filesystem>
 #include "SimpleIni.h"
 
@@ -16,7 +17,7 @@ struct AleevaSettings {
 	std::string api_key;
 	std::vector<int64_t> server_ids;
 	int64_t selected_server_id;
-	std::vector<int64_t> channel_ids;
+	std::map<int64_t, std::vector<int64_t>> channel_ids;
 	int64_t selected_channel_id;
 };
 

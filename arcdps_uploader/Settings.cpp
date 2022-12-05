@@ -2,7 +2,10 @@
 
 #include "loguru.hpp"
 
-Settings::Settings(std::filesystem::path& ini_path) : ini_path(ini_path) {}
+Settings::Settings(std::filesystem::path& ini_path)
+: ini_path(ini_path)
+, aleeva{}
+{}
 
 void Settings::load() {
     ini.SetUnicode();
