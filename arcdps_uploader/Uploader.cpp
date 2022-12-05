@@ -1115,11 +1115,11 @@ void Uploader::upload_thread_loop() {
                 {"file", cpr::File{log->path.string()}}, {"json", "1"}};
 
             if (!userToken.disabled) {
-                params.AddParameter({"userToken", userToken.value});
+                params.Add({"userToken", userToken.value});
             }
 
             if (settings.wvw_detailed_enabled) {
-                params.AddParameter({"detailedwvw", "true"});
+                params.Add({"detailedwvw", "true"});
             }
 
             response = cpr::Post(url, params, multi);
