@@ -633,7 +633,7 @@ void Uploader::imgui_draw_options() {
 
                     if (ImGui::Button("Login")) {
                         auto future = std::async(std::launch::async, [&]() {
-                            Aleeva::authorize(settings);
+                            Aleeva::login(settings);
                         });
                     }
                 } else {
@@ -1063,9 +1063,8 @@ void Uploader::start_upload_thread() {
     upload_thread = std::thread(&Uploader::upload_thread_loop, this);
     // Aleeva Authorise
     if (settings.aleeva.enabled) {
-        if (Aleeva::is_refresh_token_valid(settings)) {
-            Aleeva::authorize(settings);
-        }
+        auto future =
+            std::async(std::launch::async, [&]() { Aleeva::login(settings); });
     }
 }
 

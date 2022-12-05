@@ -7,6 +7,7 @@
 #include <map>
 #include <filesystem>
 #include "SimpleIni.h"
+#include "Aleeva.h"
 
 struct AleevaSettings {
 	bool enabled;
@@ -15,9 +16,9 @@ struct AleevaSettings {
 	std::string refresh_token;
 	int64_t token_expiration;
 	std::string api_key;
-	std::vector<int64_t> server_ids;
-	int64_t selected_server_id;
-	std::map<int64_t, std::vector<int64_t>> channel_ids;
+	std::vector<Aleeva::DiscordId> server_ids;
+	std::string selected_server_id;
+	std::map<std::string, std::vector<Aleeva::DiscordId>> channel_ids;
 	int64_t selected_channel_id;
 };
 

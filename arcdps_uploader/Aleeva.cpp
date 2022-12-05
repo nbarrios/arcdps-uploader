@@ -3,8 +3,19 @@
 #include <cpr/cpr.h>
 #include <nlohmann/json.hpp>
 #include "loguru.hpp"
+#include "Settings.h"
 
 using json = nlohmann::json;
+
+void Aleeva::login(Settings& settings) {
+    if (Aleeva::is_refresh_token_valid(settings)) {
+        Aleeva::authorize(settings);
+        Aleeva::get_servers(settings);
+        for (const Aleeva::DiscordId& server : settings.aleeva.server_ids) {
+            Aleeva::get_channels(settings, server.id);
+        }
+    }
+}
 
 std::string Aleeva::authorize(Settings& settings)
 {
@@ -38,11 +49,18 @@ std::string Aleeva::authorize(Settings& settings)
                 int64_t expires_in = parsed["refreshExpiresIn"];
                 settings.aleeva.token_expiration = now + expires_in;
 
+                settings.save();
+
                 settings.aleeva.authorised = true;
+                return "Aleeva login successful.";
             } catch(const json::exception& e) {
                 LOG_F(ERROR, "Aleeva Auth JSON Parse Fail: %s", e.what());
             }
         }
+    } else if (response.status_code == 401) {
+        settings.aleeva.authorised = false;
+        settings.aleeva.refresh_token = "";
+        settings.aleeva.token_expiration = 0;
     }
 
     return "Aleeva login failed. See log for details.";
@@ -66,4 +84,77 @@ bool Aleeva::is_refresh_token_valid(Settings& settings)
     }
 
     return true;
+}
+
+void Aleeva::get_servers(Settings& settings)
+{
+    if (!settings.aleeva.authorised) {
+        return;
+    }
+
+    cpr::Response response;
+    response = cpr::Get(
+        cpr::Url{"https://api.aleeva.io/server"},
+        cpr::Bearer(settings.aleeva.api_key),
+        cpr::Parameters{
+            {"mode", "UPLOADS"}
+        }
+    );
+
+    LOG_F(INFO, "Aleeva Servers response: %s", response.text.c_str());
+
+    if (response.status_code == 200) {
+        if (response.header.count("Content-Type") && response.header["Content-Type"] == "application/json") {
+            try {
+                json parsed = json::parse(response.text);
+                for (auto& server : parsed) {
+                    DiscordId server_id;
+                    server_id.id = server["id"];
+                    server_id.name = server["name"];
+                    settings.aleeva.server_ids.push_back(server_id);
+                }
+            } catch(const json::exception& e) {
+                LOG_F(ERROR, "Aleeva Servers JSON Parse Fail: %s", e.what());
+            }
+        }
+    }
+}
+
+void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
+    if (!settings.aleeva.authorised) {
+        return;
+    }
+
+    cpr::Response response;
+    response = cpr::Get(
+        cpr::Url{"https://api.aleeva.io/server/" + server_id + "/channel"},
+        cpr::Bearer{settings.aleeva.api_key},
+        cpr::Parameters{
+            {"mode", "UPLOADS"}
+        }
+    );
+
+    LOG_F(INFO, "Aleeva Channels response: %s", response.text.c_str());
+
+    if (response.status_code == 200) {
+        if (response.header.count("Content-Type") && response.header["Content-Type"] == "application/json") {
+            try {
+                json parsed = json::parse(response.text);
+                for (auto& server : parsed) {
+                    DiscordId channel_id;
+                    channel_id.id = server["id"];
+                    channel_id.name = server["name"];
+
+                    if (settings.aleeva.channel_ids.count(server_id) == 0) {
+                        settings.aleeva.channel_ids.emplace(server_id, std::vector<DiscordId>());
+                    }
+
+                    auto& channels = settings.aleeva.channel_ids.at(server_id);
+                    channels.push_back(channel_id);
+                }
+            } catch(const json::exception& e) {
+                LOG_F(ERROR, "Aleeva Channels JSON Parse Fail: %s", e.what());
+            }
+        }
+    }
 }
