@@ -48,10 +48,6 @@ struct Webhook
 
 class Uploader
 {
-	bool ini_enabled;
-	fs::path ini_path;
-	CSimpleIniA ini;
-
 	Settings settings;
 
 	fs::path log_path;

@@ -2,6 +2,10 @@
 #define __SETTINGS_H__
 
 #include <cstdint>
+#include <string>
+#include <vector>
+#include <filesystem>
+#include "SimpleIni.h"
 
 struct AleevaSettings {
 	bool enabled;
@@ -18,11 +22,18 @@ struct AleevaSettings {
 
 struct Settings
 {
+	std::filesystem::path ini_path;
+	CSimpleIniA ini;
+
 	bool wvw_detailed_enabled;
 	bool gw2bot_enabled;
 	std::string gw2bot_key;
 	bool gw2bot_success_only;
 	AleevaSettings aleeva;
+
+	Settings(std::filesystem::path& ini_path);
+	void load();
+	void save();
 };
 
 inline constexpr char* INI_SECTION_SETTINGS = "Settings";

@@ -5,10 +5,10 @@
 #include <nlohmann/json.hpp>
 #include <thread>
 
+#include "Aleeva.h"
 #include "imgui/imgui.h"
 #include "imgui/imgui_stdlib.h"
 #include "loguru.hpp"
-#include "Aleeva.h"
 
 using json = nlohmann::json;
 
@@ -54,37 +54,9 @@ using Storage = decltype(initStorage(""));
 static std::unique_ptr<Storage> storage;
 
 Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
-    : is_open(false), in_combat(false), settings{}, ini_enabled(true) {
-    // INI
-    ini_path = data_path / "uploader.ini";
-    ini.SetUnicode();
-    SI_Error error = ini.LoadFile(ini_path.string().c_str());
-    if (error == SI_OK) {
-        LOG_F(INFO, "Loaded INI file");
-        settings.wvw_detailed_enabled = ini.GetBoolValue(
-            INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING, false);
-
-        settings.gw2bot_enabled =
-            ini.GetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED, false);
-
-        settings.gw2bot_key = ini.GetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, "");
-
-        settings.gw2bot_success_only = ini.GetBoolValue(
-            INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY, false);
-
-        settings.aleeva.enabled =
-            ini.GetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_ENABLED, false);
-
-        settings.aleeva.refresh_token = ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_REFRESH_TOKEN, "");
-
-        try {
-            settings.aleeva.token_expiration = std::stoll(ini.GetValue(
-                INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION, "0"));
-        } catch (std::exception& e) {
-            LOG_F(ERROR, "Failed to parse Aleeva token expiration: %s",
-                  e.what());
-        }
-    }
+    : is_open(false), in_combat(false), settings(data_path / "uploader.ini") {
+    // Load settings from INI
+    settings.load();
 
     // Sqlite Database
     fs::path db_path = data_path / "uploader.db";
@@ -153,8 +125,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
             StatusMessage msg;
             msg.msg =
                 "Log path not found. Is Arcdps logging enabled and is the log "
-                "path "
-                "valid?";
+                "path valid?";
             std::lock_guard<std::mutex> lk(ts_msg_mutex);
             thread_status_messages.push_back(msg);
         }
@@ -164,22 +135,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
 Uploader::~Uploader() {
     LOG_F(INFO, "Uploader destructor begin...");
     // Save our settings if we previously loaded/created an ini file
-    if (ini_enabled) {
-        ini.SetBoolValue(INI_SECTION_SETTINGS, INI_WVW_DETAILED_SETTING,
-                         settings.wvw_detailed_enabled);
-        ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_ENABLED,
-                         settings.gw2bot_enabled);
-        ini.SetValue(INI_SECTION_SETTINGS, INI_GW2BOT_KEY, settings.gw2bot_key.c_str());
-        ini.SetBoolValue(INI_SECTION_SETTINGS, INI_GW2BOT_SUCCESS_ONLY,
-                         settings.gw2bot_success_only);
-        ini.SetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_ENABLED,
-                         settings.aleeva.enabled);
-        ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_REFRESH_TOKEN,
-                         settings.aleeva.refresh_token.c_str());
-        ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION,
-                         std::to_string(settings.aleeva.token_expiration).c_str());
-        ini.SaveFile(ini_path.string().c_str());
-    }
+    settings.save();
 
     // Stop the thread from looping and wait for it to finish executing
     // Otherwise, GW2 will not exit
@@ -663,7 +619,8 @@ void Uploader::imgui_draw_options() {
                     ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
                                          ImGui::CalcTextSize(access_title).x -
                                          5);
-                    ImGui::InputText(access_title, &settings.aleeva.access_code);
+                    ImGui::InputText(access_title,
+                                     &settings.aleeva.access_code);
                     ImGui::PopItemWidth();
                     if (ImGui::IsItemHovered()) {
                         ImGui::BeginTooltip();
