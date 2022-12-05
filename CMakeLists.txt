@@ -1,8 +1,11 @@
-cmake_minimum_required(VERSION 3.8.0)
+cmake_minimum_required(VERSION 3.15.0)
+
+cmake_policy(SET CMP0091 NEW)
 
 project(arcdps_uploader LANGUAGES CXX C)
 
 find_package(CURL CONFIG REQUIRED)
+find_package(cpr CONFIG REQUIRED)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -24,19 +27,6 @@ set(SOURCE
     arcdps_uploader/imgui/imgui_stdlib.cpp
     arcdps_uploader/loguru.cpp
     arcdps_uploader/sqlite3.c
-    arcdps_uploader/cpr/auth.cpp
-    arcdps_uploader/cpr/cookies.cpp
-    arcdps_uploader/cpr/cprtypes.cpp
-    arcdps_uploader/cpr/digest.cpp
-    arcdps_uploader/cpr/error.cpp
-    arcdps_uploader/cpr/multipart.cpp
-    arcdps_uploader/cpr/parameters.cpp
-    arcdps_uploader/cpr/payload.cpp
-    arcdps_uploader/cpr/proxies.cpp
-    arcdps_uploader/cpr/session.cpp
-    arcdps_uploader/cpr/ssl_options.cpp
-    arcdps_uploader/cpr/timeout.cpp
-    arcdps_uploader/cpr/util.cpp
     revtc/Revtc.cpp
 )
 
@@ -60,6 +50,10 @@ add_library(d3d9_uploader SHARED
     ${SOURCE}
     ${HEADERS}
 )
+
+set_property(TARGET d3d9_uploader PROPERTY
+  MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 include_directories(
     arcdps_uploader/includes
     revtc    
@@ -81,6 +75,10 @@ add_executable(uploader_standalone
     ${SOURCE}
     ${HEADERS}
 )
+
+set_property(TARGET uploader_standalone PROPERTY
+  MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+
 target_compile_definitions(uploader_standalone PRIVATE
     UNICODE
     _UNICODE
@@ -93,10 +91,12 @@ set_property(TARGET uploader_standalone PROPERTY VS_DEBUGGER_WORKING_DIRECTORY $
 
 target_link_libraries(d3d9_uploader PUBLIC
     CURL::libcurl
+    cpr::cpr
 )
 
 target_link_libraries(uploader_standalone PUBLIC
     CURL::libcurl
+    cpr::cpr
     D3d9
 )
 
