@@ -113,6 +113,9 @@ void Aleeva::get_servers(Settings& settings)
                     server_id.name = server["name"];
                     settings.aleeva.server_ids.push_back(server_id);
                 }
+                if (settings.aleeva.server_ids.size() > 0 && settings.aleeva.selected_server_id == "") {
+                    settings.aleeva.selected_server_id = settings.aleeva.server_ids[0].id;
+                }
             } catch(const json::exception& e) {
                 LOG_F(ERROR, "Aleeva Servers JSON Parse Fail: %s", e.what());
             }
@@ -151,6 +154,10 @@ void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
 
                     auto& channels = settings.aleeva.channel_ids.at(server_id);
                     channels.push_back(channel_id);
+
+                    if (channels.size() > 0 && settings.aleeva.selected_channel_id == "") {
+                        settings.aleeva.selected_channel_id = channels[0].id;
+                    }
                 }
             } catch(const json::exception& e) {
                 LOG_F(ERROR, "Aleeva Channels JSON Parse Fail: %s", e.what());
