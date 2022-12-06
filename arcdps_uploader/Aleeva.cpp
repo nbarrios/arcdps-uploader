@@ -101,8 +101,6 @@ void Aleeva::get_servers(Settings& settings)
         }
     );
 
-    LOG_F(INFO, "Aleeva Servers response: %s", response.text.c_str());
-
     if (response.status_code == 200) {
         if (response.header.count("Content-Type") && response.header["Content-Type"] == "application/json") {
             try {
@@ -120,6 +118,8 @@ void Aleeva::get_servers(Settings& settings)
                 LOG_F(ERROR, "Aleeva Servers JSON Parse Fail: %s", e.what());
             }
         }
+    } else {
+        LOG_F(INFO, "Aleeva Servers response: %s", response.text.c_str());
     }
 }
 
@@ -137,7 +137,6 @@ void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
         }
     );
 
-    LOG_F(INFO, "Aleeva Channels response: %s", response.text.c_str());
 
     if (response.status_code == 200) {
         if (response.header.count("Content-Type") && response.header["Content-Type"] == "application/json") {
@@ -163,6 +162,8 @@ void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
                 LOG_F(ERROR, "Aleeva Channels JSON Parse Fail: %s", e.what());
             }
         }
+    } else {
+        LOG_F(INFO, "Aleeva Channels response: %s", response.text.c_str());
     }
 }
 
@@ -184,5 +185,7 @@ void Aleeva::post_log(AleevaSettings& settings, const std::string& log_path) {
         },
         cpr::Body{body.dump()}
         );
-    LOG_F(INFO, "Aleeva response: %s", response.text.c_str());
+    if (response.status_code != 200 && response.status_code != 201) {
+        LOG_F(ERROR, "Aleeva post log failed: %s", response.text.c_str());
+    }
 }
