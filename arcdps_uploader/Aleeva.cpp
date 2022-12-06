@@ -165,3 +165,24 @@ void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
         }
     }
 }
+
+void Aleeva::post_log(AleevaSettings& settings, const std::string& log_path) {
+    json body;
+    body["sendNotification"] = true;
+    body["notificationServerId"] = settings.selected_server_id;
+    body["notificationChannelId"] = settings.selected_channel_id;
+    body["dpsReportPermalink"] = log_path;
+
+    cpr::Response response;
+    response = cpr::Post(
+        cpr::Url{
+            "https://api.aleeva.io/report"},
+        cpr::Bearer{settings.api_key},
+        cpr::Header{
+            {"accept", "application/json"},
+            {"Content-Type", "application/json"},
+        },
+        cpr::Body{body.dump()}
+        );
+    LOG_F(INFO, "Aleeva response: %s", response.text.c_str());
+}
