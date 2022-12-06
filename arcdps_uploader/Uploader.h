@@ -80,6 +80,7 @@ class Uploader
 
 	void check_webhooks(int log_id);
 	void check_gw2bot(int log_id);
+	void check_aleeva(int log_id);
 
 	void upload_thread_loop();
 	void add_pending_upload_logs(std::vector<int>& queue);

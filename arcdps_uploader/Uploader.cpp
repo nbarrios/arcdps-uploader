@@ -329,6 +329,20 @@ void Uploader::imgui_draw_logs() {
         }
         ImGui::SetClipboardText(msg.c_str());
     }
+
+#ifdef STANDALONE
+    ImGui::SameLine();
+    if (ImGui::Button("Reupload")) {
+        std::vector<int> queue;
+        for (int i = 0; i < logs.size(); ++i) {
+            if (selected[i]) {
+                Log& s = logs.at(i);
+                queue.push_back(s.id);
+            }
+        }
+        add_pending_upload_logs(queue);
+    }
+#endif
 }
 
 void Uploader::imgui_draw_status() {
@@ -999,6 +1013,24 @@ void Uploader::check_gw2bot(int log_id) {
     }
 }
 
+void Uploader::check_aleeva(int log_id) {
+    if (!settings.aleeva.enabled) return;
+
+    auto log = storage->get_pointer<Log>(log_id);
+    if (log) {
+        bool process = true;
+        if (!log->success && settings.gw2bot_success_only) process = false;
+
+        if (process) {
+            LOG_F(INFO, "Posting to Aleeva: %s", log->permalink.c_str());
+            auto aleeva_future = std::async(
+                std::launch::async,
+                Aleeva::post_log,
+                settings.aleeva, log->permalink);
+        }
+    }
+}
+
 void Uploader::start_async_refresh_log_list() {
     LOG_F(INFO, "Starting Async Log Refresh");
     using namespace sqlite_orm;
@@ -1233,6 +1265,7 @@ void Uploader::upload_thread_loop() {
                 if (log->uploaded && !log->error) {
                     check_webhooks(log->id);
                     check_gw2bot(log->id);
+                    check_aleeva(log->id);
                 };
             } catch (std::system_error e) {
                 LOG_F(ERROR, "Failed to update log: %s", e.what());
