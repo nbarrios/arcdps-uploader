@@ -75,6 +75,7 @@ class Uploader
 	void imgui_draw_logs();
 	void imgui_draw_status();
 	void imgui_draw_options();
+	void imgui_draw_options_aleeva();
 	void create_log_table(Log& l);
 
 	void check_webhooks(int log_id);

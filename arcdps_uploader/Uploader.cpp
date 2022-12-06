@@ -604,54 +604,8 @@ void Uploader::imgui_draw_options() {
             ImGui::TreePop();
         }
 
-        if (ImGui::TreeNode("Aleeva")) {
-            ImGui::Checkbox("Aleeva Integration Enabled",
-                            &settings.aleeva.enabled);
-            if (ImGui::IsItemHovered()) {
-                ImGui::BeginTooltip();
-                ImGui::Text("Post logs for Aleeva to manage");
-                ImGui::EndTooltip();
-            }
-
-            if (settings.aleeva.enabled) {
-                if (!settings.aleeva.authorised) {
-                    const char* access_title = "Access Code";
-                    ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
-                                         ImGui::CalcTextSize(access_title).x -
-                                         5);
-                    ImGui::InputText(access_title,
-                                     &settings.aleeva.access_code);
-                    ImGui::PopItemWidth();
-                    if (ImGui::IsItemHovered()) {
-                        ImGui::BeginTooltip();
-                        ImGui::Text(
-                            "Use Aleeva's /profile command to generate an "
-                            "access "
-                            "code");
-                        ImGui::EndTooltip();
-                    }
-
-                    if (ImGui::Button("Login")) {
-                        auto future = std::async(std::launch::async, [&]() {
-                            Aleeva::login(settings);
-                        });
-                    }
-                } else {
-                    if (ImGui::Button("Logout")) {
-                        Aleeva::deauthorize(settings);
-                    }
-                }
-
-                ImGui::Checkbox("Clears only", &settings.gw2bot_success_only);
-                if (ImGui::IsItemHovered()) {
-                    ImGui::BeginTooltip();
-                    ImGui::Text("Only post clears/successful logs to Aleeva.");
-                    ImGui::EndTooltip();
-                }
-            }
-
-            ImGui::TreePop();
-        }
+        //Aleeva
+        imgui_draw_options_aleeva();
 
         if (ImGui::TreeNode("GW2Bot")) {
             ImGui::Checkbox("GW2Bot Integration Enabled",
@@ -717,6 +671,104 @@ void Uploader::imgui_draw_options() {
 
             ImGui::TreePop();
         }
+    }
+}
+
+void Uploader::imgui_draw_options_aleeva() {
+    if (ImGui::TreeNode("Aleeva")) {
+        ImGui::Checkbox("Aleeva Integration Enabled", &settings.aleeva.enabled);
+        if (ImGui::IsItemHovered()) {
+            ImGui::BeginTooltip();
+            ImGui::Text("Post logs for Aleeva to manage");
+            ImGui::EndTooltip();
+        }
+
+        if (settings.aleeva.enabled) {
+            if (!settings.aleeva.authorised) {
+                const char* access_title = "Access Code";
+                ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
+                                     ImGui::CalcTextSize(access_title).x - 5);
+                ImGui::InputText(access_title, &settings.aleeva.access_code);
+                ImGui::PopItemWidth();
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text(
+                        "Use Aleeva's /profile command to generate an "
+                        "access code");
+                    ImGui::EndTooltip();
+                }
+
+                if (ImGui::Button("Login")) {
+                    auto future = std::async(
+                        std::launch::async, [&]() { Aleeva::login(settings); });
+                }
+            } else {
+                ImGui::SameLine();
+                if (ImGui::Button("Logout")) {
+                    Aleeva::deauthorize(settings);
+                }
+                const char* server_title = "";
+                for (const auto& server : settings.aleeva.server_ids) {
+                    if (server.id == settings.aleeva.selected_server_id) {
+                        server_title = server.name.c_str();
+                        break;
+                    }
+                }
+                if (ImGui::BeginCombo("Server", server_title, ImGuiComboFlags_None)) {
+                    for (auto& server : settings.aleeva.server_ids) {
+                        bool is_selected = (server.id == settings.aleeva.selected_server_id);
+                        if (ImGui::Selectable(server.name.c_str(), is_selected)) {
+                            settings.aleeva.selected_server_id = server.id;
+                        }
+                        
+                        if (is_selected) {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+
+                    ImGui::EndCombo();
+                }
+
+                const char* channel_title = "";
+                if (settings.aleeva.channel_ids.count(settings.aleeva.selected_server_id)) {
+                    const std::vector<Aleeva::DiscordId>& channel_ids = 
+                        settings.aleeva.channel_ids[settings.aleeva.selected_server_id];
+                    for (const auto& channel : channel_ids) {
+                        if (channel.id == settings.aleeva.selected_channel_id) {
+                            channel_title = channel.name.c_str();
+                            break;
+                        }
+                    }
+                }
+                if (ImGui::BeginCombo("Channel", channel_title, ImGuiComboFlags_None)) {
+                    const std::vector<Aleeva::DiscordId>& channel_ids = 
+                        settings.aleeva.channel_ids[settings.aleeva.selected_server_id];
+
+                    for (auto& channel : channel_ids) {
+                        bool is_selected = (channel.id == settings.aleeva.selected_server_id);
+                        if (ImGui::Selectable(channel.name.c_str(), is_selected)) {
+                            settings.aleeva.selected_channel_id = channel.id;
+                        }
+                        
+                        if (is_selected) {
+                            ImGui::SetItemDefaultFocus();
+                        }
+                    }
+
+                    ImGui::EndCombo();
+                }
+
+                ImGui::Checkbox("Clears only", &settings.gw2bot_success_only);
+                if (ImGui::IsItemHovered()) {
+                    ImGui::BeginTooltip();
+                    ImGui::Text("Only post clears/successful logs to Aleeva.");
+                    ImGui::EndTooltip();
+                }
+            }
+
+        }
+
+        ImGui::TreePop();
     }
 }
 
