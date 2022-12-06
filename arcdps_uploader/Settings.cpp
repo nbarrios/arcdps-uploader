@@ -29,6 +29,14 @@ void Settings::load() {
         aleeva.refresh_token =
             ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_REFRESH_TOKEN, "");
 
+        aleeva.selected_server_id =
+            ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_SERVER_ID, "");
+        aleeva.selected_channel_id =
+            ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_CHANNEL_ID, "");
+
+        aleeva.success_only =
+            ini.GetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SUCCESS_ONLY, false);
+
         try {
             aleeva.token_expiration = std::stoll(ini.GetValue(
                 INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION, "0"));
@@ -51,6 +59,11 @@ void Settings::save() {
                  aleeva.refresh_token.c_str());
     ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_TOKEN_EXPIRATION,
                  std::to_string(aleeva.token_expiration).c_str());
+    ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_SERVER_ID,
+                 aleeva.selected_server_id.c_str());
+    ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_CHANNEL_ID,
+                 aleeva.selected_channel_id.c_str());
+    ini.SetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SUCCESS_ONLY, aleeva.success_only);
     SI_Error error = ini.SaveFile(ini_path.string().c_str());
     if (error != SI_OK) {
         LOG_F(ERROR, "Failed to save INI file");
