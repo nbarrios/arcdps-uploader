@@ -169,7 +169,7 @@ void Aleeva::get_channels(Settings& settings, const std::string& server_id) {
 
 void Aleeva::post_log(AleevaSettings& settings, const std::string& log_path) {
     json body;
-    body["sendNotification"] = true;
+    body["sendNotification"] = settings.should_post;
     body["notificationServerId"] = settings.selected_server_id;
     body["notificationChannelId"] = settings.selected_channel_id;
     body["dpsReportPermalink"] = log_path;
