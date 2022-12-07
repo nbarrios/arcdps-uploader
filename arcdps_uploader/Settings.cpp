@@ -34,6 +34,8 @@ void Settings::load() {
         aleeva.selected_channel_id =
             ini.GetValue(INI_SECTION_SETTINGS, INI_ALEEVA_CHANNEL_ID, "");
 
+        aleeva.should_post =
+            ini.GetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SHOULD_POST, true);
         aleeva.success_only =
             ini.GetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SUCCESS_ONLY, false);
 
@@ -63,6 +65,7 @@ void Settings::save() {
                  aleeva.selected_server_id.c_str());
     ini.SetValue(INI_SECTION_SETTINGS, INI_ALEEVA_CHANNEL_ID,
                  aleeva.selected_channel_id.c_str());
+    ini.SetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SHOULD_POST, aleeva.should_post);
     ini.SetBoolValue(INI_SECTION_SETTINGS, INI_ALEEVA_SUCCESS_ONLY, aleeva.success_only);
     SI_Error error = ini.SaveFile(ini_path.string().c_str());
     if (error != SI_OK) {

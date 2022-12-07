@@ -20,6 +20,7 @@ struct AleevaSettings {
 	std::string selected_server_id;
 	std::map<std::string, std::vector<Aleeva::DiscordId>> channel_ids;
 	std::string selected_channel_id;
+	bool should_post;
 	bool success_only;
 };
 
@@ -49,6 +50,7 @@ inline constexpr char* INI_ALEEVA_REFRESH_TOKEN = "Aleeva_Refresh_Token";
 inline constexpr char* INI_ALEEVA_TOKEN_EXPIRATION = "Aleeva_Token_Expiration";
 inline constexpr char* INI_ALEEVA_SERVER_ID = "Aleeva_Server_Id";
 inline constexpr char* INI_ALEEVA_CHANNEL_ID = "Aleeva_Channel_Id";
+inline constexpr char* INI_ALEEVA_SHOULD_POST = "Aleeva_Should_Post";
 inline constexpr char* INI_ALEEVA_SUCCESS_ONLY = "Aleeva_Success_Only";
 
 #endif // __SETTINGS_H__
