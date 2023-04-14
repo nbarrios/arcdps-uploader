@@ -337,7 +337,7 @@ void Uploader::imgui_draw_logs() {
         std::chrono::system_clock::time_point current =
             std::chrono::system_clock::now();
         std::chrono::system_clock::time_point past =
-            current - std::chrono::minutes(150);
+            current - std::chrono::minutes(settings.recent_minutes);
         for (int i = 0; i < logs.size(); ++i) {
             const Log& s = logs.at(i);
             if (s.uploaded && s.success) {
@@ -714,6 +714,10 @@ void Uploader::imgui_draw_options() {
                     "\\n: new line");
                 ImGui::EndTooltip();
             }
+
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() * 0.25f);
+            ImGui::InputInt("# of minutes back for recent clears", &settings.recent_minutes);
+            ImGui::PopItemWidth();
 
             ImGui::TreePop();
         }
