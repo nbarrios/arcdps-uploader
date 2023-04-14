@@ -307,6 +307,25 @@ void Uploader::imgui_draw_logs() {
 
     ImGui::SameLine();
 
+    if (ImGui::Button("Copy & Format Selected")) {
+        std::time_t now = std::time(nullptr);
+        std::tm* local = std::localtime(&now);
+        char buf[64];
+        strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+
+        std::string msg(buf);
+
+        for (int i = 0; i < logs.size(); ++i) {
+            if (selected[i]) {
+                const Log& s = logs.at(i);
+                msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
+            }
+        }
+        ImGui::SetClipboardText(msg.c_str());
+    }
+
+    ImGui::SameLine();
+
     if (ImGui::Button("Copy & Format Recent Clears")) {
         std::time_t now = std::time(nullptr);
         std::tm* local = std::localtime(&now);
