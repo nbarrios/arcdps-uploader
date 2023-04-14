@@ -318,7 +318,7 @@ void Uploader::imgui_draw_logs() {
         for (int i = 0; i < logs.size(); ++i) {
             if (selected[i]) {
                 const Log& s = logs.at(i);
-                msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
+                msg += format_msg(s);
             }
         }
         ImGui::SetClipboardText(msg.c_str());
@@ -342,7 +342,7 @@ void Uploader::imgui_draw_logs() {
             const Log& s = logs.at(i);
             if (s.uploaded && s.success) {
                 if (s.time > past) {
-                    msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
+                    msg += format_msg(s);
                 }
             }
         }
@@ -699,6 +699,19 @@ void Uploader::imgui_draw_options() {
                 ImGui::Text(
                     "Particularly long logs may fail to upload if this is "
                     "enabled");
+                ImGui::EndTooltip();
+            }
+
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
+                ImGui::CalcTextSize("Formatted log output").x - 5);
+            ImGui::InputText("Formatted log string", &settings.msg_format);
+            ImGui::PopItemWidth();
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text(
+                    "@1: Boss Name\n"
+                    "@2: dps.report link\n"
+                    "\\n: new line");
                 ImGui::EndTooltip();
             }
 
@@ -1316,4 +1329,22 @@ void Uploader::queue_status_message(const std::string& msg, int log_id) {
 void Uploader::queue_status_message(const StatusMessage& msg) {
     std::lock_guard<std::mutex> lk(ts_msg_mutex);
     thread_status_messages.push_back(msg);
+}
+
+std::string Uploader::format_msg(Log log) {
+    std::string f = settings.msg_format; // get format string
+    std::string msg = "";
+    std::string::const_iterator it = f.begin();
+    while (it != f.end()) {
+        char c = *it++;
+        if (c == '\\' && it != f.end() && *it++ == 'n') {
+            c = '\n';
+        }
+        msg += c;
+    }
+
+    msg = std::regex_replace(msg, std::regex("@1"), log.boss_name);
+    msg = std::regex_replace(msg, std::regex("@2"), log.permalink);
+    msg = std::regex_replace(msg, std::regex("@3"), std::to_string(log.boss_id));
+    return msg;
 }
