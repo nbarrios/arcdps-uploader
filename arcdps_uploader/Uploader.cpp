@@ -1349,6 +1349,5 @@ std::string Uploader::format_msg(Log log) {
 
     msg = std::regex_replace(msg, std::regex("@1"), log.boss_name);
     msg = std::regex_replace(msg, std::regex("@2"), log.permalink);
-    msg = std::regex_replace(msg, std::regex("@3"), std::to_string(log.boss_id));
     return msg;
 }
