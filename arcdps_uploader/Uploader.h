@@ -88,6 +88,8 @@ class Uploader
 
 	void queue_status_message(const std::string& msg, int log_id = -1);
 	void queue_status_message(const StatusMessage& status);
+
+	std::string format_msg(Log log);
 public:
 	bool is_open;
 	bool in_combat;

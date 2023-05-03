@@ -307,6 +307,25 @@ void Uploader::imgui_draw_logs() {
 
     ImGui::SameLine();
 
+    if (ImGui::Button("Copy & Format Selected")) {
+        std::time_t now = std::time(nullptr);
+        std::tm* local = std::localtime(&now);
+        char buf[64];
+        strftime(buf, 64, "__**%b %d %Y**__\n\n", local);
+
+        std::string msg(buf);
+
+        for (int i = 0; i < logs.size(); ++i) {
+            if (selected[i]) {
+                const Log& s = logs.at(i);
+                msg += format_msg(s);
+            }
+        }
+        ImGui::SetClipboardText(msg.c_str());
+    }
+
+    ImGui::SameLine();
+
     if (ImGui::Button("Copy & Format Recent Clears")) {
         std::time_t now = std::time(nullptr);
         std::tm* local = std::localtime(&now);
@@ -318,12 +337,12 @@ void Uploader::imgui_draw_logs() {
         std::chrono::system_clock::time_point current =
             std::chrono::system_clock::now();
         std::chrono::system_clock::time_point past =
-            current - std::chrono::minutes(150);
+            current - std::chrono::minutes(settings.recent_minutes);
         for (int i = 0; i < logs.size(); ++i) {
             const Log& s = logs.at(i);
             if (s.uploaded && s.success) {
                 if (s.time > past) {
-                    msg += s.boss_name + " - " + "\n*" + s.permalink + "*\n\n";
+                    msg += format_msg(s);
                 }
             }
         }
@@ -682,6 +701,23 @@ void Uploader::imgui_draw_options() {
                     "enabled");
                 ImGui::EndTooltip();
             }
+
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
+                ImGui::CalcTextSize("Formatted log output").x - 5);
+            ImGui::InputText("Formatted log string", &settings.msg_format);
+            ImGui::PopItemWidth();
+            if (ImGui::IsItemHovered()) {
+                ImGui::BeginTooltip();
+                ImGui::Text(
+                    "@1: Boss Name\n"
+                    "@2: dps.report link\n"
+                    "\\n: new line");
+                ImGui::EndTooltip();
+            }
+
+            ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() * 0.25f);
+            ImGui::InputInt("# of minutes back for recent clears", &settings.recent_minutes);
+            ImGui::PopItemWidth();
 
             ImGui::TreePop();
         }
@@ -1297,4 +1333,21 @@ void Uploader::queue_status_message(const std::string& msg, int log_id) {
 void Uploader::queue_status_message(const StatusMessage& msg) {
     std::lock_guard<std::mutex> lk(ts_msg_mutex);
     thread_status_messages.push_back(msg);
+}
+
+std::string Uploader::format_msg(Log log) {
+    std::string f = settings.msg_format; // get format string
+    std::string msg = "";
+    std::string::const_iterator it = f.begin();
+    while (it != f.end()) {
+        char c = *it++;
+        if (c == '\\' && it != f.end() && *it++ == 'n') {
+            c = '\n';
+        }
+        msg += c;
+    }
+
+    msg = std::regex_replace(msg, std::regex("@1"), log.boss_name);
+    msg = std::regex_replace(msg, std::regex("@2"), log.permalink);
+    return msg;
 }
