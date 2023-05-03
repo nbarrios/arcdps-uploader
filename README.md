@@ -14,6 +14,10 @@ Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releas
 Use *Alt-Shift-U* to bring the uploader window up.
 
 ## Changelog
+**1.0.1**
+* Added Aleeva integration
+* Contributed by @covertPZ: Additional user configuration for formatted log messages
+
 **0.9.3**
 * Use a fixed window size to prevent auto-resize feedback loop (Fixes #7)
 * View button opens logs in default browser (#8)
