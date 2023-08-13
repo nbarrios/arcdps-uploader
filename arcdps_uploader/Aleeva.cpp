@@ -15,6 +15,10 @@ void Aleeva::login(Settings& settings) {
             Aleeva::get_channels(settings, server.id);
         }
     }
+    else {
+        Aleeva::authorize(settings);
+        Aleeva::login(settings);
+    }
 }
 
 std::string Aleeva::authorize(Settings& settings)
