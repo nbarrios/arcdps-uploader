@@ -6,6 +6,9 @@ This is an extension for Arcdps that automatically uploads EVTC combat logs *in-
 * No network usage while you're in combat
 * Discord Webhook integration
 
+### CURRENT BUILDS MAY NO LONGER LOAD
+It may simply fail to display or even crash your game on startup. Consider [Plen Bot Log Uploader](https://github.com/Plenyx/PlenBotLogUploader) as an alternative as I have no ETA for a fix. I don't have much time to maintain this project (or play GW2 for that matter) but I will get it working again at some point. PRs welcome.
+
 ## Usage
 Grab the latest [release](https://github.com/datatobridge/arcdps-uploader/releases). Unzip and copy `d3d9_uploader.dll` to same directory as **Arcdps** (usually something like `C:\Program Files\Guild Wars 2\bin64`).
 
