@@ -964,6 +964,8 @@ void Uploader::check_webhooks(int log_id) {
                 process = false;
             if (category == Revtc::BossCategory::WVW && !wh.wvw)
                 process = false;
+            if (category == Revtc::BossCategory::UNKNOWN)
+                process = false;
 
             if (wh.filter.size() > 5) {
                 std::vector<std::string> accounts;
