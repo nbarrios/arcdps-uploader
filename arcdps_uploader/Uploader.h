@@ -43,7 +43,7 @@ struct Webhook
 
 	char name_buf[64];
 	char url_buf[192];
-	char filter_buf[128];
+	char filter_buf[256];
 };
 
 class Uploader
