@@ -93,7 +93,7 @@ Uploader::Uploader(fs::path data_path, std::optional<fs::path> custom_log_path)
         memcpy(wh.name_buf, wh.name.c_str(), wh.name.size());
         memset(wh.url_buf, 0, 192);
         memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
-        memset(wh.filter_buf, 0, 128);
+        memset(wh.filter_buf, 0, 256);
         memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
     }
 
@@ -545,7 +545,7 @@ void Uploader::imgui_draw_options() {
 
                 ImGui::PushItemWidth(ImGui::GetContentRegionAvailWidth() -
                                      ImGui::CalcTextSize("Filter").x - 1);
-                ImGui::InputText("Filter", wh.filter_buf, 128);
+                ImGui::InputText("Filter", wh.filter_buf, 256);
                 ImGui::PopItemWidth();
                 if (ImGui::IsItemHovered()) {
                     ImGui::BeginTooltip();
@@ -600,7 +600,7 @@ void Uploader::imgui_draw_options() {
                                    wh.name.size());
                             memset(wh.url_buf, 0, 192);
                             memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
-                            memset(wh.filter_buf, 0, 128);
+                            memset(wh.filter_buf, 0, 256);
                             memcpy(wh.filter_buf, wh.filter.c_str(),
                                    wh.filter.size());
                         }
@@ -629,7 +629,7 @@ void Uploader::imgui_draw_options() {
                     memcpy(wh.name_buf, wh.name.c_str(), wh.name.size());
                     memset(wh.url_buf, 0, 192);
                     memcpy(wh.url_buf, wh.url.c_str(), wh.url.size());
-                    memset(wh.filter_buf, 0, 128);
+                    memset(wh.filter_buf, 0, 256);
                     memcpy(wh.filter_buf, wh.filter.c_str(), wh.filter.size());
                 }
             }
