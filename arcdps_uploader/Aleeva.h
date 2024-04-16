@@ -12,9 +12,9 @@ namespace Aleeva {
         std::string name;
     };
 
-    void login(Settings& settings);
+    bool login(Settings& settings);
 
-    std::string authorize(Settings& settings);
+    bool authorize(Settings& settings);
     void deauthorize(Settings& settings);
     bool is_refresh_token_valid(Settings& settings);
     void get_servers(Settings& settings);

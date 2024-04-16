@@ -750,7 +750,14 @@ void Uploader::imgui_draw_options_aleeva() {
 
                 if (ImGui::Button("Login")) {
                     auto future = std::async(
-                        std::launch::async, [&]() { Aleeva::login(settings); });
+                        std::launch::async, [&]() { 
+							StatusMessage sm;
+							sm.msg = "Aleeva login failed. Please check your access code and try to login again.";
+                            if (Aleeva::login(settings)) {
+                                sm.msg = "Aleeva login successful.";
+                            }
+                            status_messages.push_back(sm);
+                        });
                 }
             } else {
                 ImGui::SameLine();
@@ -1199,7 +1206,14 @@ void Uploader::start_upload_thread() {
     // Aleeva Authorise
     if (settings.aleeva.enabled) {
         auto future =
-            std::async(std::launch::async, [&]() { Aleeva::login(settings); });
+            std::async(std::launch::async, [&]() {
+				StatusMessage sm;
+                sm.msg = "Aleeva login failed. Please check your access code and try to login again.";
+                if (Aleeva::login(settings)) {
+                    sm.msg = "Aleeva login successful.";
+				}
+				status_messages.push_back(sm);
+			});
     }
 }
 
