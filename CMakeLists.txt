@@ -34,6 +34,7 @@ set(HEADERS
     arcdps_uploader/arcdps_uploader.h
     arcdps_uploader/arcdps_defs.h
     arcdps_uploader/arc_logging.h
+    arcdps_uploader/Aleeva.h
     arcdps_uploader/Uploader.h
     arcdps_uploader/Settings.h
     arcdps_uploader/Log.h
